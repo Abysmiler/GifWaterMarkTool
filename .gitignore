@@ -1,2 +1,11 @@
 build/
 deploy_p3/
+docs/
+.superpowers/
+*.md
+!README.md
+_red_err.txt
+_shot2.ps1
+build_err.txt
+importedcontent/
+test/

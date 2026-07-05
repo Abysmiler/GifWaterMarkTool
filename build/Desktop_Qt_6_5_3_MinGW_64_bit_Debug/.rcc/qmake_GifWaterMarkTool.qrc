@@ -1,6 +1,0 @@
-<RCC>
-  <qresource prefix="/qt/qml/GifWaterMarkTool">
-    <file alias="qmldir">D:/Dev/PersonalProjects/QT/GifWaterMarkTool/build/Desktop_Qt_6_5_3_MinGW_64_bit_Debug/GifWaterMarkTool/qmldir</file>
-  </qresource>
-</RCC>
-

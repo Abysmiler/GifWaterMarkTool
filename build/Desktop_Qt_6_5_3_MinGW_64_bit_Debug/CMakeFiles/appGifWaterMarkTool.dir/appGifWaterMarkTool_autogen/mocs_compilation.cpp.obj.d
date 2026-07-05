@@ -1,2 +1,0 @@
-CMakeFiles/appGifWaterMarkTool.dir/appGifWaterMarkTool_autogen/mocs_compilation.cpp.obj: \
- D:\Dev\PersonalProjects\QT\GifWaterMarkTool\build\Desktop_Qt_6_5_3_MinGW_64_bit_Debug\appGifWaterMarkTool_autogen\mocs_compilation.cpp

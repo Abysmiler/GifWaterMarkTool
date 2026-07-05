@@ -48,16 +48,8 @@ ColumnLayout {
 
     // 文字水印 signals
     signal useTextWaterToggled(bool v)
-    signal textContentChanged(string v)
-    signal textFontSizeChanged(int v)
-    signal textColorChanged(string v)
 
     // 导出参数 signals
-    signal compressPresetChanged(int v)
-    signal maxWidthChanged(int v)
-    signal targetFpsChanged(int v)
-    signal qualityLevelChanged(int v)
-    signal ditherModeChanged(int v)
     signal deepOptimizeToggled(bool v)
 
     // 文件选择 signals

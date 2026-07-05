@@ -329,27 +329,6 @@ ColumnLayout {
         text: qsTr("导出参数")
     }
 
-    ComboBox {
-        id: compressCombo
-        Layout.fillWidth: true
-        model: [ qsTr("原图高质量"), qsTr("平衡 (推荐)"), qsTr("极限小体积") ]
-        currentIndex: root.compressPreset
-        onActivated: function(index) {
-            root.compressPreset = index
-            root.targetFps = 0
-            if (index === 0) {
-                root.maxWidth = 0; root.qualityLevel = 0
-                root.ditherMode = 0; root.deepOptimize = false
-            } else if (index === 1) {
-                root.maxWidth = 360; root.qualityLevel = 1
-                root.ditherMode = 0; root.deepOptimize = true
-            } else {
-                root.maxWidth = 280; root.qualityLevel = 2
-                root.ditherMode = 1; root.deepOptimize = true
-            }
-        }
-    }
-
     RowLayout {
         Layout.fillWidth: true
         spacing: 8

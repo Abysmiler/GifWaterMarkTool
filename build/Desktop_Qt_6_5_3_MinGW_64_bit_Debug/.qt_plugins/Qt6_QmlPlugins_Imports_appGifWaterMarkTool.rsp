@@ -1,0 +1,14 @@
+-rootPath
+D:/Dev/PersonalProjects/QT/GifWaterMarkTool
+-cmake-output
+-output-file
+D:/Dev/PersonalProjects/QT/GifWaterMarkTool/build/Desktop_Qt_6_5_3_MinGW_64_bit_Debug/.qt_plugins/Qt6_QmlPlugins_Imports_appGifWaterMarkTool.cmake
+-importPath
+D:/Dev/PersonalProjects/QT/GifWaterMarkTool/build/Desktop_Qt_6_5_3_MinGW_64_bit_Debug/GifWaterMarkTool
+-importPath
+D:/Dev/PersonalProjects/QT/GifWaterMarkTool/build/Desktop_Qt_6_5_3_MinGW_64_bit_Debug
+-importPath
+D:/Dev/Env/QT/6.5.3/mingw_64/./qml
+-qrcFiles
+D:/Dev/PersonalProjects/QT/GifWaterMarkTool/build/Desktop_Qt_6_5_3_MinGW_64_bit_Debug/.rcc/qmake_GifWaterMarkTool.qrc
+D:/Dev/PersonalProjects/QT/GifWaterMarkTool/build/Desktop_Qt_6_5_3_MinGW_64_bit_Debug/.rcc/appGifWaterMarkTool_raw_qml_0.qrc

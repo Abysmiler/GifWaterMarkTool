@@ -1,0 +1,6 @@
+<RCC>
+  <qresource prefix="/qt/qml/GifWaterMarkTool/">
+    <file alias="Main.qml">D:/Dev/PersonalProjects/QT/GifWaterMarkTool/Main.qml</file>
+  </qresource>
+</RCC>
+

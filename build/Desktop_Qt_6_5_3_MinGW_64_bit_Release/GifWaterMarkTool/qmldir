@@ -1,0 +1,8 @@
+module GifWaterMarkTool
+typeinfo GifWaterMarkTool.qmltypes
+prefer :/qt/qml/GifWaterMarkTool/
+Main 254.0 qml/Main.qml
+CanvasPreview 254.0 qml/CanvasPreview.qml
+ParameterPanel 254.0 qml/ParameterPanel.qml
+Toast 254.0 qml/Toast.qml
+

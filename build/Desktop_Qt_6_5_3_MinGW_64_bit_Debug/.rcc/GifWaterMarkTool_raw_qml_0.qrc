@@ -1,0 +1,9 @@
+<RCC>
+  <qresource prefix="/qt/qml/GifWaterMarkTool/">
+    <file alias="qml/Main.qml">D:/Dev/PersonalProjects/QT/GifWaterMarkTool/qml/Main.qml</file>
+    <file alias="qml/CanvasPreview.qml">D:/Dev/PersonalProjects/QT/GifWaterMarkTool/qml/CanvasPreview.qml</file>
+    <file alias="qml/ParameterPanel.qml">D:/Dev/PersonalProjects/QT/GifWaterMarkTool/qml/ParameterPanel.qml</file>
+    <file alias="qml/Toast.qml">D:/Dev/PersonalProjects/QT/GifWaterMarkTool/qml/Toast.qml</file>
+  </qresource>
+</RCC>
+

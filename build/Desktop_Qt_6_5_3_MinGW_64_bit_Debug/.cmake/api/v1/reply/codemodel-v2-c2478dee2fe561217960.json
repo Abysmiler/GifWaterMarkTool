@@ -1,0 +1,178 @@
+{
+	"configurations" : 
+	[
+		{
+			"directories" : 
+			[
+				{
+					"build" : ".",
+					"hasInstallRule" : true,
+					"jsonFile" : "directory-.-Debug-72cb32c518ae1743b9cb.json",
+					"minimumCMakeVersion" : 
+					{
+						"string" : "3.16"
+					},
+					"projectIndex" : 0,
+					"source" : ".",
+					"targetIndexes" : 
+					[
+						0,
+						1,
+						2,
+						3,
+						4,
+						5,
+						6,
+						7,
+						8,
+						9,
+						10,
+						11,
+						12,
+						13
+					]
+				}
+			],
+			"name" : "Debug",
+			"projects" : 
+			[
+				{
+					"directoryIndexes" : 
+					[
+						0
+					],
+					"name" : "GifWaterMarkTool",
+					"targetIndexes" : 
+					[
+						0,
+						1,
+						2,
+						3,
+						4,
+						5,
+						6,
+						7,
+						8,
+						9,
+						10,
+						11,
+						12,
+						13
+					]
+				}
+			],
+			"targets" : 
+			[
+				{
+					"directoryIndex" : 0,
+					"id" : "GifWaterMarkTool::@6890427a1f51a3e7e1df",
+					"jsonFile" : "target-GifWaterMarkTool-Debug-2d18ebe231532ff03ec8.json",
+					"name" : "GifWaterMarkTool",
+					"projectIndex" : 0
+				},
+				{
+					"directoryIndex" : 0,
+					"id" : "GifWaterMarkTool_autogen::@6890427a1f51a3e7e1df",
+					"jsonFile" : "target-GifWaterMarkTool_autogen-Debug-7538180d5bca792e62d2.json",
+					"name" : "GifWaterMarkTool_autogen",
+					"projectIndex" : 0
+				},
+				{
+					"directoryIndex" : 0,
+					"id" : "GifWaterMarkTool_autogen_timestamp_deps::@6890427a1f51a3e7e1df",
+					"jsonFile" : "target-GifWaterMarkTool_autogen_timestamp_deps-Debug-bf0c32306b079b4a4818.json",
+					"name" : "GifWaterMarkTool_autogen_timestamp_deps",
+					"projectIndex" : 0
+				},
+				{
+					"directoryIndex" : 0,
+					"id" : "GifWaterMarkTool_automoc_json_extraction::@6890427a1f51a3e7e1df",
+					"jsonFile" : "target-GifWaterMarkTool_automoc_json_extraction-Debug-59357610917290279a9c.json",
+					"name" : "GifWaterMarkTool_automoc_json_extraction",
+					"projectIndex" : 0
+				},
+				{
+					"directoryIndex" : 0,
+					"id" : "GifWaterMarkTool_qmlimportscan::@6890427a1f51a3e7e1df",
+					"jsonFile" : "target-GifWaterMarkTool_qmlimportscan-Debug-936baa0761b74b8654b8.json",
+					"name" : "GifWaterMarkTool_qmlimportscan",
+					"projectIndex" : 0
+				},
+				{
+					"directoryIndex" : 0,
+					"id" : "GifWaterMarkTool_qmllint::@6890427a1f51a3e7e1df",
+					"jsonFile" : "target-GifWaterMarkTool_qmllint-Debug-2810e5c83f1f1f0eef9b.json",
+					"name" : "GifWaterMarkTool_qmllint",
+					"projectIndex" : 0
+				},
+				{
+					"directoryIndex" : 0,
+					"id" : "GifWaterMarkTool_qmllint_json::@6890427a1f51a3e7e1df",
+					"jsonFile" : "target-GifWaterMarkTool_qmllint_json-Debug-d88147cd5e93aa150b38.json",
+					"name" : "GifWaterMarkTool_qmllint_json",
+					"projectIndex" : 0
+				},
+				{
+					"directoryIndex" : 0,
+					"id" : "GifWaterMarkTool_qmllint_module::@6890427a1f51a3e7e1df",
+					"jsonFile" : "target-GifWaterMarkTool_qmllint_module-Debug-fadc09faa1dac74ab726.json",
+					"name" : "GifWaterMarkTool_qmllint_module",
+					"projectIndex" : 0
+				},
+				{
+					"directoryIndex" : 0,
+					"id" : "GifWaterMarkTool_qmltyperegistration::@6890427a1f51a3e7e1df",
+					"jsonFile" : "target-GifWaterMarkTool_qmltyperegistration-Debug-242954a66bc2dde3a0b9.json",
+					"name" : "GifWaterMarkTool_qmltyperegistration",
+					"projectIndex" : 0
+				},
+				{
+					"directoryIndex" : 0,
+					"id" : "GifWaterMarkTool_tooling::@6890427a1f51a3e7e1df",
+					"jsonFile" : "target-GifWaterMarkTool_tooling-Debug-55bb5a846bacaad0809b.json",
+					"name" : "GifWaterMarkTool_tooling",
+					"projectIndex" : 0
+				},
+				{
+					"directoryIndex" : 0,
+					"id" : "all_qmllint::@6890427a1f51a3e7e1df",
+					"jsonFile" : "target-all_qmllint-Debug-31928d152d689b53f4ef.json",
+					"name" : "all_qmllint",
+					"projectIndex" : 0
+				},
+				{
+					"directoryIndex" : 0,
+					"id" : "all_qmllint_json::@6890427a1f51a3e7e1df",
+					"jsonFile" : "target-all_qmllint_json-Debug-dd25fc98fd17deff8cf7.json",
+					"name" : "all_qmllint_json",
+					"projectIndex" : 0
+				},
+				{
+					"directoryIndex" : 0,
+					"id" : "all_qmllint_module::@6890427a1f51a3e7e1df",
+					"jsonFile" : "target-all_qmllint_module-Debug-8bbeff9dcd0f2fff1aa9.json",
+					"name" : "all_qmllint_module",
+					"projectIndex" : 0
+				},
+				{
+					"directoryIndex" : 0,
+					"id" : "all_qmltyperegistrations::@6890427a1f51a3e7e1df",
+					"jsonFile" : "target-all_qmltyperegistrations-Debug-e757d3ccf4dae70d28f9.json",
+					"name" : "all_qmltyperegistrations",
+					"projectIndex" : 0
+				}
+			]
+		}
+	],
+	"kind" : "codemodel",
+	"paths" : 
+	{
+		"build" : "D:/Dev/PersonalProjects/QT/GifWaterMarkTool/build/Desktop_Qt_6_5_3_MinGW_64_bit_Debug",
+		"source" : "D:/Dev/PersonalProjects/QT/GifWaterMarkTool"
+	},
+	"version" : 
+	{
+		"major" : 2,
+		"minor" : 7
+	}
+}

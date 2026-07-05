@@ -1,0 +1,3 @@
+D:\Dev\Env\QT\Tools\CMake_64\bin\cmake.exe -E rm -f CMakeFiles\appGifWaterMarkTool.dir/objects.a
+D:\Dev\Env\QT\Tools\mingw1120_64\bin\ar.exe qc CMakeFiles\appGifWaterMarkTool.dir/objects.a @CMakeFiles\appGifWaterMarkTool.dir\objects1.rsp
+D:\Dev\Env\QT\Tools\mingw1120_64\bin\g++.exe -g -mwindows -Wl,--whole-archive CMakeFiles\appGifWaterMarkTool.dir/objects.a -Wl,--no-whole-archive -o appGifWaterMarkTool.exe -Wl,--out-implib,libappGifWaterMarkTool.dll.a -Wl,--major-image-version,0,--minor-image-version,0 @CMakeFiles\appGifWaterMarkTool.dir\linkLibs.rsp

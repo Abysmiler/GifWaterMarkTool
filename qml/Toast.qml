@@ -6,7 +6,7 @@ Rectangle {
     id: root
     visible: false
     width: Math.min(280, parent.width - 32)
-    height: 40; radius: 20
+    height: 40; radius: 10
     anchors.horizontalCenter: parent.horizontalCenter
     y: 12
     z: 999

@@ -27,7 +27,7 @@ Item {
     property real gifOrigH: 0
 
     // ---- 预览框（固定尺寸，始终不变）----
-    readonly property real _boxW: Math.min(root.width * 0.65, root.height * 0.65 * 4 / 3)
+    readonly property real _boxW: Math.min(root.width * 0.75, root.height * 0.75 * 4 / 3)
     readonly property real _boxH: _boxW * 3 / 4
     readonly property real _boxX: (root.width - _boxW) / 2
     readonly property real _boxY: (root.height - _boxH) / 2
@@ -107,12 +107,7 @@ Item {
     }
 
     // ---- 背景 ----
-    Rectangle { anchors.fill: parent; radius: 8; color: "#1e1e24" }
-    Text {
-        anchors.top: parent.top; anchors.left: parent.left
-        anchors.margins: 10; z: 10
-        text: qsTr("预览"); color: "#7a7a82"; font.pixelSize: 12
-    }
+    Rectangle { anchors.fill: parent; color: "#1a1a1e" }
 
     // ---- 固定预览框 ----
     Rectangle {

@@ -108,7 +108,7 @@ ApplicationWindow {
 
     onWaterPathChanged: {
         if (window.waterPath !== "" && window.gifPath !== "" && preview.gifOrigW > 0) {
-            preview.setGifPosition(400, 485)
+            preview.setGifPosition(370, 485)
         }
     }
 

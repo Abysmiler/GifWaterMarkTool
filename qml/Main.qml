@@ -332,8 +332,6 @@ ApplicationWindow {
     Rectangle {
         id: drawer
         width: 300
-        height: parent.height
-        anchors.right: parent.right
         anchors.top: parent.top
         anchors.bottom: parent.bottom
         x: window.drawerOpen ? parent.width - width : parent.width

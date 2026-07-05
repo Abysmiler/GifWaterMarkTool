@@ -10,7 +10,7 @@ ApplicationWindow {
     width: 1200; height: 780
     minimumWidth: 960; minimumHeight: 600
     visible: true
-    title: qsTr("GIF 水印工具")
+    title: qsTr("GIF 水印工具 V1.0.0.3")
 
     // ---- 主题 ----
     property bool lightMode: Application.styleHints.colorScheme === Qt.Light

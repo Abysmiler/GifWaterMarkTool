@@ -5,68 +5,61 @@ import QtQuick.Dialogs
 import Qt.labs.settings
 import GifWaterMarkTool
 
-// 主界面：卡片式布局，跟随系统亮暗主题。
-// 持有共享水印参数（wmScale/wmOpacity/wmRotate/qualityMode）作为唯一 source。
-// 预览：GIF 变化时用 ffmpeg 抽第一帧 PNG（Qt AnimatedImage 读不了部分 GIF）。
 ApplicationWindow {
     id: window
-    width: 1000; height: 640
-    minimumWidth: 840; minimumHeight: 520
+    width: 1200; height: 780
+    minimumWidth: 960; minimumHeight: 600
     visible: true
-    title: qsTr("GIF 水印工具 V1.0.0.2")
+    title: qsTr("GIF 水印工具")
 
-
-    // ---- 主题（跟随系统亮暗）----
+    // ---- 主题 ----
     property bool lightMode: Application.styleHints.colorScheme === Qt.Light
-    readonly property color bg: lightMode ? "#f3f3f5" : "#1c1c1e"
-    readonly property color cardBg: lightMode ? "#ffffff" : "#2a2a2c"
+    readonly property color bg: lightMode ? "#f5f5f7" : "#1c1c1e"
+    readonly property color cardBg: lightMode ? "#ffffff" : "#2c2c2e"
     readonly property color text: lightMode ? "#1f1f1f" : "#e8e8ea"
-    readonly property color subText: lightMode ? "#6b6b70" : "#9a9aa0"
+    readonly property color subText: lightMode ? "#86868b" : "#98989d"
     readonly property color accent: "#3b82f6"
+    readonly property color divider: lightMode ? "#e5e5ea" : "#3a3a3c"
 
     color: bg
 
-    // ---- 共享水印参数（唯一 source）----
+    // ---- 共享水印参数 ----
     property real wmScale: 1.0
     property real wmOpacity: 1.0
     property real wmRotate: 0.0
     property int  qualityLevel: 0
-    // ---- 压缩参数（默认 0 = 不压缩/保持原画质）----
-    property int  compressPreset: 0   // 0=原图高质量, 1=平衡, 2=极限小体积
-    property int  maxWidth: 0         // 0=不限；>0 按宽等比缩（只缩不放）
-    property int  targetFps: 0        // 0=保持原帧率；>0 降帧率
-    property int  ditherMode: 0       // 0=bayer, 1=none, 2=sierra2_4a
-    property bool deepOptimize: false // 导出后跑 gifsicle 深度优化
+    property int  compressPreset: 0
+    property int  maxWidth: 0
+    property int  targetFps: 0
+    property int  ditherMode: 0
+    property bool deepOptimize: false
     property bool useTextWater: false
     property string textContent: ""
     property int  textFontSize: 24
     property string textColor: "#ffffff"
+    property bool drawerOpen: false
 
     onWmScaleChanged: saveWmMemory()
     onWmOpacityChanged: saveWmMemory()
     onWmRotateChanged: saveWmMemory()
 
-    // 水印拖拽时也保存位置
     Connections {
         target: preview
         function onGifCenterXChanged() { saveWmMemory() }
         function onGifCenterYChanged() { saveWmMemory() }
     }
 
-    // ---- 文件路径（原始格式，供 ffmpeg 命令使用）----
+    // ---- 文件路径 ----
     property string gifPath: ""
     property string waterPath: ""
     property string outPath: ""
-
-    // 供 QML Image 使用的 file:/// URL 格式
     readonly property string gifUrl: gifPath !== "" ? "file:///" + gifPath : ""
     readonly property string waterUrl: waterPath !== "" ? "file:///" + waterPath : ""
+    property string _previewPath: ""
+    property bool _restorePending: false
+    property bool _suppressMemorySave: false
 
-    property string _previewPath: ""       // ffmpeg 抽帧 PNG（file:/// URL）
-    property bool _restorePending: false    // GIF 加载完成后需恢复记忆位置
-    property bool _suppressMemorySave: false // 加载期间禁止 saveWmMemory 写入
-
-    // ---- 水印记忆（Qt.labs.settings 持久化）----
+    // ---- Settings ----
     Settings {
         id: wmSettings
         category: "watermark"
@@ -77,7 +70,6 @@ ApplicationWindow {
         property real rotate: 0.0
         property bool memoryEnabled: false
     }
-
     Settings {
         id: dlgSettings
         category: "dialogs"
@@ -86,10 +78,8 @@ ApplicationWindow {
         property string outFolder: ""
     }
 
-
-    // 保存当前水印参数（导出时 + 参数变化时调用）
     function saveWmMemory() {
-        if (_suppressMemorySave) return   // 加载期间禁止写入，防止覆盖有效记忆
+        if (_suppressMemorySave) return
         if (preview.gifOrigW > 0 && preview.gifOrigH > 0) {
             wmSettings.posXRatio = preview.gifCenterX / preview.gifOrigW
             wmSettings.posYRatio = preview.gifCenterY / preview.gifOrigH
@@ -99,14 +89,12 @@ ApplicationWindow {
         }
     }
 
-    // GIF 变化 → 同步抽第一帧；如果开启了记忆，标记需要恢复
     onGifPathChanged: {
         _previewPath = ""
         _suppressMemorySave = true
         _restorePending = wmSettings.memoryEnabled
         if (window.gifPath !== "") {
             _previewPath = runner.extractPreview(window.gifPath)
-            // 换 GIF 后自动更新导出路径（沿用上次文件夹，新文件名 + 新时间戳）
             var oldDir = window.outPath.replace(/[\\/][^\\/]+$/, "")
             if (oldDir !== "" && oldDir !== window.outPath) {
                 var gifName = window.gifPath.replace(/^.*[\\/]/, "").replace(/\.gif$/i, "")
@@ -118,7 +106,6 @@ ApplicationWindow {
         }
     }
 
-    // CanvasPreview 布局完成后恢复记忆位置
     function onPreviewReady() {
         _suppressMemorySave = false
         if (_restorePending && preview.gifOrigW > 0) {
@@ -132,14 +119,13 @@ ApplicationWindow {
     }
 
     function pad(n) { return n < 10 ? "0" + n : "" + n }
-
     function urlToPath(u) {
         var s = u.toString()
         if (s.startsWith("file:///")) s = s.substring(8)
         try { return decodeURIComponent(s) } catch (e) { return s }
     }
 
-    // ---- FFmpegRunner 实例：绑定所有参数 ----
+    // ---- FFmpegRunner ----
     FFmpegRunner {
         id: runner
         gifPath: window.gifPath
@@ -166,25 +152,81 @@ ApplicationWindow {
         }
     }
 
-    // ---- 布局 ----
-    RowLayout {
+    // ---- 主布局 ----
+    ColumnLayout {
         anchors.fill: parent
-        anchors.margins: 16
-        spacing: 16
+        spacing: 0
 
-        // 左：预览画布（Rectangle 直接作为 Layout 子项，避免 Pane contentItem 尺寸传递问题）
+        // === 顶部操作栏 ===
         Rectangle {
             Layout.fillWidth: true
+            Layout.preferredHeight: 52
+            color: window.lightMode ? "#f0f0f3" : "#252528"
+            radius: 0
+
+            RowLayout {
+                anchors.fill: parent
+                anchors.leftMargin: 16; anchors.rightMargin: 16
+                spacing: 12
+
+                Button {
+                    id: selectGifBtn
+                    text: window.gifPath !== ""
+                          ? window.gifPath.replace(/^.*[\\/]/, "")
+                          : qsTr("📁 选择 GIF")
+                    font.pixelSize: 14
+                    font.bold: true
+                    Layout.preferredWidth: 180
+                    highlighted: window.gifPath === ""
+                    onClicked: gifDialog.open()
+                }
+
+                Button {
+                    id: exportBtn
+                    text: runner.running ? qsTr("导出中...") : qsTr("🚀 导出")
+                    font.pixelSize: 14
+                    font.bold: true
+                    highlighted: true
+                    enabled: !runner.running && window.gifPath !== ""
+                             && (window.waterPath !== "" || window.useTextWater)
+                             && window.outPath !== ""
+                    onClicked: runner.exportGif()
+                }
+
+                Button {
+                    text: qsTr("取消")
+                    visible: runner.running
+                    onClicked: runner.cancelExport()
+                }
+
+                Item { Layout.fillWidth: true }
+
+                Button {
+                    id: settingsBtn
+                    text: qsTr("⚙️ 水印设置")
+                    font.pixelSize: 13
+                    flat: true
+                    highlighted: window.drawerOpen
+                    onClicked: window.drawerOpen = !window.drawerOpen
+                }
+            }
+        }
+
+        Rectangle {
+            Layout.fillWidth: true
+            Layout.preferredHeight: 1
+            color: window.divider
+        }
+
+        // === 预览区 ===
+        Item {
+            Layout.fillWidth: true
             Layout.fillHeight: true
-            Layout.minimumWidth: 200
-            radius: 12
-            color: window.cardBg
-            border.color: window.lightMode ? "#e5e5e8" : "#3a3a3c"
-            border.width: 1
+
             CanvasPreview {
                 id: preview
                 anchors.fill: parent
-                anchors.margins: 12
+                anchors.margins: 0
                 gifSource: window.gifUrl
                 previewSource: window._previewPath
                 waterSource: window.waterUrl
@@ -199,9 +241,8 @@ ApplicationWindow {
                 onPreviewReady: window.onPreviewReady()
             }
 
-            // 拖拽文件到预览区
             DropArea {
-                anchors.fill: parent; anchors.margins: 12
+                anchors.fill: parent
                 onEntered: function(drag) { drag.accepted = drag.hasUrls }
                 onDropped: function(drop) {
                     var path = urlToPath(drop.urls[0])
@@ -210,173 +251,177 @@ ApplicationWindow {
                     else if (lower.endsWith(".png")) window.waterPath = path
                 }
             }
-        }
 
-        // 右：控制面板
-        Rectangle {
-            Layout.preferredWidth: 250
-            Layout.fillHeight: true
-            radius: 10
-            color: window.cardBg
-            border.color: window.lightMode ? "#e5e5e8" : "#3a3a3c"
-            border.width: 1
+            ProgressBar {
+                anchors.bottom: parent.bottom
+                anchors.left: parent.left
+                anchors.right: parent.right
+                anchors.margins: 20
+                visible: runner.running
+                value: runner.progress / 100
+                z: 10
+            }
 
-            ScrollView {
-                id: sideScroll
+            // 抽屉遮罩
+            Rectangle {
                 anchors.fill: parent
-                anchors.margins: 10
-                clip: true
-
-            ColumnLayout {
-                width: sideScroll.availableWidth
-                spacing: 4
-
-                GroupBox {
-                    title: qsTr("文件")
-                    Layout.fillWidth: true
-                    ColumnLayout {
-                        anchors.fill: parent
-                        spacing: 4
-                        Button { Layout.fillWidth: true; text: qsTr("选择 GIF"); onClicked: gifDialog.open() }
-                        Label { Layout.fillWidth: true; elide: Text.ElideRight
-                            text: window.gifPath ? window.gifPath.replace(/^.*[\\/]/, "") : qsTr("未选择")
-                            color: window.gifPath ? window.text : window.subText }
-                        Button { Layout.fillWidth: true; text: qsTr("选择水印"); onClicked: waterDialog.open() }
-                        Label { Layout.fillWidth: true; elide: Text.ElideRight
-                            text: window.waterPath ? window.waterPath.replace(/^.*[\\/]/, "") : qsTr("未选择")
-                            color: window.waterPath ? window.text : window.subText }
-                    }
-                }
-
-                GroupBox {
-                    title: qsTr("导出")
-                    Layout.fillWidth: true
-                    ColumnLayout {
-                        anchors.fill: parent; spacing: 4
-                        Button { Layout.fillWidth: true; text: qsTr("选择导出文件夹"); onClicked: outDialog.open() }
-
-                        // 压缩预设：一键填充下方四个手动参数（选后仍可手动覆盖）
-                        ComboBox {
-                            id: compressCombo; Layout.fillWidth: true
-                            model: [ qsTr("压缩: 原图高质量"), qsTr("压缩: 平衡 (推荐)"), qsTr("压缩: 极限小体积") ]
-                            currentIndex: window.compressPreset
-                            onActivated: function(index) {
-                                window.compressPreset = index
-                                window.targetFps = 0  // 所有预设均保持原帧率（用户偏好）
-                                if (index === 0) {        // 原图高质量：不缩放、不深度优化
-                                    window.maxWidth = 0; window.qualityLevel = 0; window.ditherMode = 0; window.deepOptimize = false
-                                } else if (index === 1) {  // 平衡：缩到 360 宽 + 128 色 + bayer + gifsicle
-                                    window.maxWidth = 360; window.qualityLevel = 1; window.ditherMode = 0; window.deepOptimize = true
-                                } else {                   // 极限小体积：缩到 280 宽 + 64 色 + none + gifsicle
-                                    window.maxWidth = 280; window.qualityLevel = 2; window.ditherMode = 1; window.deepOptimize = true
-                                }
-                            }
-                        }
-
-                        // ---- 手动精调（覆盖预设值）----
-                        RowLayout {
-                            Layout.fillWidth: true; spacing: 6
-                            Label { text: qsTr("最大宽"); color: window.text; Layout.preferredWidth: 44 }
-                            SpinBox {
-                                Layout.fillWidth: true; from: 0; to: 1920; value: window.maxWidth
-                                editable: true; onValueModified: window.maxWidth = value
-                                up.indicator: Item { }
-                                down.indicator: Item { }
-                            }
-                        }
-                        Label { Layout.fillWidth: true; font.pixelSize: 10; color: window.subText
-                            text: qsTr("0=不限；按宽等比缩，只缩不放") }
-
-                        RowLayout {
-                            Layout.fillWidth: true; spacing: 6
-                            Label { text: qsTr("帧率"); color: window.text; Layout.preferredWidth: 44 }
-                            SpinBox {
-                                Layout.fillWidth: true; from: 0; to: 60; value: window.targetFps
-                                editable: true; onValueModified: window.targetFps = value
-                                up.indicator: Item { }
-                                down.indicator: Item { }
-                            }
-                        }
-                        Label { Layout.fillWidth: true; font.pixelSize: 10; color: window.subText
-                            text: qsTr("0=保持原帧率（推荐）") }
-
-                        ComboBox {
-                            id: qualityCombo; Layout.fillWidth: true
-                            model: [ qsTr("原画 256色"), qsTr("中等 128色"), qsTr("压缩 64色"), qsTr("高压缩 32色") ]
-                            currentIndex: window.qualityLevel
-                            onActivated: function(index) { window.qualityLevel = index }
-                        }
-
-                        ComboBox {
-                            Layout.fillWidth: true
-                            model: [ qsTr("抖动: 平衡 bayer"), qsTr("抖动: 最小 none"), qsTr("抖动: 平滑 sierra") ]
-                            currentIndex: window.ditherMode
-                            onActivated: function(index) { window.ditherMode = index }
-                        }
-
-                        CheckBox {
-                            Layout.fillWidth: true
-                            text: qsTr("深度优化 (gifsicle，再瘦 30%)")
-                            checked: window.deepOptimize; onToggled: window.deepOptimize = checked
-                        }
-
-                        Label { Layout.fillWidth: true; elide: Text.ElideRight
-                            text: window.outPath ? window.outPath.replace(/^.*[\\/]/, "") : qsTr("未选择")
-                            color: window.outPath ? window.text : window.subText }
-                        ProgressBar { Layout.fillWidth: true; visible: runner.running; value: runner.progress / 100 }
-                        Button { Layout.fillWidth: true; text: qsTr("开始导出"); highlighted: true
-                            enabled: !runner.running && window.gifPath !== "" && (window.waterPath !== "" || window.useTextWater) && window.outPath !== ""
-                            onClicked: runner.exportGif() }
-                        Button { Layout.fillWidth: true; text: qsTr("取消")
-                            visible: runner.running; onClicked: runner.cancelExport() }
-                    }
-                }
-
-                GroupBox {
-                    title: qsTr("水印参数")
-                    Layout.fillWidth: true
-                    ParameterPanel {
-                        anchors.fill: parent
-                        wmScale: window.wmScale; wmOpacity: window.wmOpacity; wmRotate: window.wmRotate
-                        gifCenterX: preview.gifCenterX; gifCenterY: preview.gifCenterY
-                        memoryEnabled: wmSettings.memoryEnabled
-                        onWmScaleRequested: window.wmScale = v
-                        onWmOpacityRequested: window.wmOpacity = v
-                        onWmRotateRequested: window.wmRotate = v
-                        onWmXRequested: preview.setGifPosition(x, preview.gifCenterY)
-                        onWmYRequested: preview.setGifPosition(preview.gifCenterX, y)
-                        onMemoryToggled: wmSettings.memoryEnabled = enabled
-                    }
-                }
-
-                GroupBox {
-                    title: qsTr("文字水印")
-                    Layout.fillWidth: true
-                    ColumnLayout {
-                        anchors.fill: parent; spacing: 4
-                        CheckBox {
-                            id: textWmCheck
-                            text: qsTr("启用文字水印")
-                            checked: window.useTextWater; onToggled: window.useTextWater = checked
-                        }
-                        RowLayout {
-                            Layout.fillWidth: true; spacing: 6
-                            visible: window.useTextWater
-                            TextField {
-                                Layout.fillWidth: true; placeholderText: qsTr("水印文字")
-                                text: window.textContent; onTextChanged: window.textContent = text
-                            }
-                            SpinBox {
-                                id: fontSizeSpin; Layout.preferredWidth: 56
-                                from: 8; to: 200; value: window.textFontSize
-                                editable: true; onValueModified: window.textFontSize = value
-                                up.indicator: Item { }
-                                down.indicator: Item { }
-                            }
-                        }
-                    }
+                color: "#000000"
+                opacity: window.drawerOpen ? 0.3 : 0.0
+                visible: opacity > 0
+                z: 5
+                Behavior on opacity { NumberAnimation { duration: 200 } }
+                MouseArea {
+                    anchors.fill: parent
+                    onClicked: window.drawerOpen = false
                 }
             }
+        }
+
+        // === 底部状态栏 ===
+        Rectangle {
+            Layout.fillWidth: true
+            Layout.preferredHeight: 32
+            color: window.lightMode ? "#f0f0f3" : "#252528"
+
+            RowLayout {
+                anchors.fill: parent
+                anchors.leftMargin: 16; anchors.rightMargin: 16
+                spacing: 16
+
+                Label {
+                    text: window.gifPath !== ""
+                          ? "🎞 " + window.gifPath.replace(/^.*[\\/]/, "")
+                          : qsTr("未选择 GIF")
+                    color: window.gifPath !== "" ? window.text : window.subText
+                    font.pixelSize: 11
+                    elide: Text.ElideRight
+                    Layout.maximumWidth: 300
+                }
+
+                Rectangle {
+                    Layout.preferredWidth: 1; Layout.preferredHeight: 16
+                    color: window.divider; visible: window.gifPath !== ""
+                }
+
+                Label {
+                    text: window.waterPath !== ""
+                          ? "💧 " + window.waterPath.replace(/^.*[\\/]/, "")
+                          : (window.useTextWater ? "📝 文字水印" : qsTr("未选择水印"))
+                    color: (window.waterPath !== "" || window.useTextWater) ? window.text : window.subText
+                    font.pixelSize: 11
+                    elide: Text.ElideRight
+                    Layout.maximumWidth: 250
+                }
+
+                Item { Layout.fillWidth: true }
+
+                Label {
+                    text: window.outPath !== ""
+                          ? "📂 " + window.outPath.replace(/^.*[\\/]/, "")
+                          : qsTr("未设置导出路径")
+                    color: window.outPath !== "" ? window.text : window.subText
+                    font.pixelSize: 11
+                    elide: Text.ElideRight
+                    Layout.maximumWidth: 350
+                }
+            }
+        }
+    }
+
+    // === 水印设置抽屉（右侧滑出） ===
+    Rectangle {
+        id: drawer
+        width: 300
+        height: parent.height
+        anchors.right: parent.right
+        anchors.top: parent.top
+        anchors.bottom: parent.bottom
+        x: window.drawerOpen ? parent.width - width : parent.width
+        z: 10
+        color: window.cardBg
+
+        Behavior on x { NumberAnimation { duration: 250; easing.type: Easing.OutCubic } }
+
+        Rectangle {
+            anchors.left: parent.left
+            anchors.top: parent.top
+            anchors.bottom: parent.bottom
+            width: 4
+            gradient: Gradient {
+                GradientStop { position: 0.0; color: "#10000000" }
+                GradientStop { position: 1.0; color: "transparent" }
+            }
+        }
+
+        ColumnLayout {
+            anchors.fill: parent
+            anchors.margins: 16
+            spacing: 0
+
+            RowLayout {
+                Layout.fillWidth: true
+                Layout.preferredHeight: 36
+                Label {
+                    text: qsTr("水印设置")
+                    font.pixelSize: 16; font.bold: true
+                    color: window.text
+                }
+                Item { Layout.fillWidth: true }
+                Button {
+                    text: "✕"
+                    flat: true
+                    font.pixelSize: 16
+                    onClicked: window.drawerOpen = false
+                }
+            }
+
+            Rectangle {
+                Layout.fillWidth: true; Layout.preferredHeight: 1
+                color: window.divider
+            }
+
+            ScrollView {
+                Layout.fillWidth: true
+                Layout.fillHeight: true
+                clip: true
+                contentWidth: availableWidth
+
+                ParameterPanel {
+                    width: parent.width
+                    wmScale: window.wmScale; wmOpacity: window.wmOpacity; wmRotate: window.wmRotate
+                    gifCenterX: preview.gifCenterX; gifCenterY: preview.gifCenterY
+                    memoryEnabled: wmSettings.memoryEnabled
+                    useTextWater: window.useTextWater
+                    textContent: window.textContent
+                    textFontSize: window.textFontSize
+                    textColor: window.textColor
+                    waterPath: window.waterPath
+                    compressPreset: window.compressPreset
+                    maxWidth: window.maxWidth
+                    targetFps: window.targetFps
+                    qualityLevel: window.qualityLevel
+                    ditherMode: window.ditherMode
+                    deepOptimize: window.deepOptimize
+                    outPath: window.outPath
+                    onWmScaleRequested: window.wmScale = v
+                    onWmOpacityRequested: window.wmOpacity = v
+                    onWmRotateRequested: window.wmRotate = v
+                    onWmXRequested: preview.setGifPosition(x, preview.gifCenterY)
+                    onWmYRequested: preview.setGifPosition(preview.gifCenterX, y)
+                    onMemoryToggled: wmSettings.memoryEnabled = enabled
+                    onUseTextWaterToggled: window.useTextWater = v
+                    onTextContentChanged: window.textContent = v
+                    onTextFontSizeChanged: window.textFontSize = v
+                    onTextColorChanged: window.textColor = v
+                    onCompressPresetChanged: window.compressPreset = v
+                    onMaxWidthChanged: window.maxWidth = v
+                    onTargetFpsChanged: window.targetFps = v
+                    onQualityLevelChanged: window.qualityLevel = v
+                    onDitherModeChanged: window.ditherMode = v
+                    onDeepOptimizeToggled: window.deepOptimize = v
+                    onWaterPathRequested: waterDialog.open()
+                    onOutPathRequested: outDialog.open()
+                }
             }
         }
     }
@@ -417,7 +462,7 @@ ApplicationWindow {
         }
     }
 
-    // ---- Toast 通知 ----
+    // ---- Toast ----
     Toast {
         id: toast
         anchors.horizontalCenter: parent.horizontalCenter

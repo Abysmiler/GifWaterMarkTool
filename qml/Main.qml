@@ -24,7 +24,7 @@ ApplicationWindow {
     color: bg
 
     // ---- 共享水印参数 ----
-    property real wmScale: 1.0
+    property real wmScale: 0.1
     property real wmOpacity: 1.0
     property real wmRotate: 0.0
     property int  qualityLevel: 1
@@ -68,7 +68,7 @@ ApplicationWindow {
         property real scale: 1.0
         property real opacity: 1.0
         property real rotate: 0.0
-        property bool memoryEnabled: false
+        property bool memoryEnabled: true
     }
     Settings {
         id: dlgSettings
@@ -103,6 +103,12 @@ ApplicationWindow {
                           + pad(d.getHours()) + pad(d.getMinutes()) + pad(d.getSeconds())
                 window.outPath = oldDir + "/" + gifName + "_" + ts + ".gif"
             }
+        }
+    }
+
+    onWaterPathChanged: {
+        if (window.waterPath !== "" && window.gifPath !== "" && preview.gifOrigW > 0) {
+            preview.setGifPosition(400, 485)
         }
     }
 

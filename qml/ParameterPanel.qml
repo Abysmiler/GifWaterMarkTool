@@ -10,9 +10,7 @@ ColumnLayout {
     readonly property bool lightMode: Application.styleHints.colorScheme === Qt.Light
     readonly property color txtColor: lightMode ? "#1f1f1f" : "#e8e8ea"
     readonly property color subColor: lightMode ? "#86868b" : "#98989d"
-    readonly property color accent: "#3b82f6"
     readonly property color divider: lightMode ? "#e5e5ea" : "#3a3a3c"
-    readonly property color sectionBg: lightMode ? "#f9f9fb" : "#222225"
 
     // 水印参数
     property real wmScale: 1.0

@@ -27,12 +27,12 @@ ApplicationWindow {
     property real wmScale: 1.0
     property real wmOpacity: 1.0
     property real wmRotate: 0.0
-    property int  qualityLevel: 0
+    property int  qualityLevel: 1
     property int  compressPreset: 0
     property int  maxWidth: 0
     property int  targetFps: 0
     property int  ditherMode: 0
-    property bool deepOptimize: false
+    property bool deepOptimize: true
     property bool useTextWater: false
     property string textContent: ""
     property int  textFontSize: 24
@@ -385,6 +385,7 @@ ApplicationWindow {
                 contentWidth: availableWidth
 
                 ParameterPanel {
+                    id: paramPanel
                     width: parent.width
                     wmScale: window.wmScale; wmOpacity: window.wmOpacity; wmRotate: window.wmRotate
                     gifCenterX: preview.gifCenterX; gifCenterY: preview.gifCenterY
@@ -408,15 +409,15 @@ ApplicationWindow {
                     onWmYRequested: preview.setGifPosition(preview.gifCenterX, y)
                     onMemoryToggled: wmSettings.memoryEnabled = enabled
                     onUseTextWaterToggled: window.useTextWater = v
-                    onTextContentChanged: window.textContent = v
-                    onTextFontSizeChanged: window.textFontSize = v
-                    onTextColorChanged: window.textColor = v
-                    onCompressPresetChanged: window.compressPreset = v
-                    onMaxWidthChanged: window.maxWidth = v
-                    onTargetFpsChanged: window.targetFps = v
-                    onQualityLevelChanged: window.qualityLevel = v
-                    onDitherModeChanged: window.ditherMode = v
-                    onDeepOptimizeToggled: window.deepOptimize = v
+                    onTextContentChanged: window.textContent = paramPanel.textContent
+                    onTextFontSizeChanged: window.textFontSize = paramPanel.textFontSize
+                    onTextColorChanged: window.textColor = paramPanel.textColor
+                    onCompressPresetChanged: window.compressPreset = paramPanel.compressPreset
+                    onMaxWidthChanged: window.maxWidth = paramPanel.maxWidth
+                    onTargetFpsChanged: window.targetFps = paramPanel.targetFps
+                    onQualityLevelChanged: window.qualityLevel = paramPanel.qualityLevel
+                    onDitherModeChanged: window.ditherMode = paramPanel.ditherMode
+                    onDeepOptimizeChanged: window.deepOptimize = paramPanel.deepOptimize
                     onWaterPathRequested: waterDialog.open()
                     onOutPathRequested: outDialog.open()
                 }

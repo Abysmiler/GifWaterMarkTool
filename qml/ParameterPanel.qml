@@ -335,17 +335,17 @@ ColumnLayout {
         model: [ qsTr("原图高质量"), qsTr("平衡 (推荐)"), qsTr("极限小体积") ]
         currentIndex: root.compressPreset
         onActivated: function(index) {
-            root.compressPresetChanged(index)
-            root.targetFpsChanged(0)
+            root.compressPreset = index
+            root.targetFps = 0
             if (index === 0) {
-                root.maxWidthChanged(0); root.qualityLevelChanged(0)
-                root.ditherModeChanged(0); root.deepOptimizeToggled(false)
+                root.maxWidth = 0; root.qualityLevel = 0
+                root.ditherMode = 0; root.deepOptimize = false
             } else if (index === 1) {
-                root.maxWidthChanged(360); root.qualityLevelChanged(1)
-                root.ditherModeChanged(0); root.deepOptimizeToggled(true)
+                root.maxWidth = 360; root.qualityLevel = 1
+                root.ditherMode = 0; root.deepOptimize = true
             } else {
-                root.maxWidthChanged(280); root.qualityLevelChanged(2)
-                root.ditherModeChanged(1); root.deepOptimizeToggled(true)
+                root.maxWidth = 280; root.qualityLevel = 2
+                root.ditherMode = 1; root.deepOptimize = true
             }
         }
     }
@@ -364,7 +364,7 @@ ColumnLayout {
             to: 1920
             value: root.maxWidth
             editable: true
-            onValueModified: root.maxWidthChanged(value)
+            onValueModified: root.maxWidth = value
             up.indicator: Item { }
             down.indicator: Item { }
         }
@@ -390,7 +390,7 @@ ColumnLayout {
             to: 60
             value: root.targetFps
             editable: true
-            onValueModified: root.targetFpsChanged(value)
+            onValueModified: root.targetFps = value
             up.indicator: Item { }
             down.indicator: Item { }
         }
@@ -406,21 +406,21 @@ ColumnLayout {
         Layout.fillWidth: true
         model: [ qsTr("原画 256色"), qsTr("中等 128色"), qsTr("压缩 64色"), qsTr("高压缩 32色") ]
         currentIndex: root.qualityLevel
-        onActivated: function(index) { root.qualityLevelChanged(index) }
+        onActivated: function(index) { root.qualityLevel = index }
     }
 
     ComboBox {
         Layout.fillWidth: true
         model: [ qsTr("抖动: bayer"), qsTr("抖动: none"), qsTr("抖动: sierra") ]
         currentIndex: root.ditherMode
-        onActivated: function(index) { root.ditherModeChanged(index) }
+        onActivated: function(index) { root.ditherMode = index }
     }
 
     CheckBox {
         text: qsTr("深度优化 (gifsicle)")
         font.pixelSize: 12
         checked: root.deepOptimize
-        onToggled: root.deepOptimizeToggled(checked)
+        onToggled: root.deepOptimize = checked
     }
 
     // 导出路径

@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.16)
 
-project(GifWaterMarkTool VERSION 0.1 LANGUAGES CXX)
+project(GifWaterMarkTool VERSION 1.0.1 LANGUAGES CXX)
 
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(QT_QML_GENERATE_QMLLS_INI ON)
@@ -14,20 +14,51 @@ if (EXISTS "${CMAKE_CURRENT_LIST_DIR}/importedcontent/CMakeLists.txt")
     add_subdirectory(${CMAKE_CURRENT_LIST_DIR}/importedcontent)
 endif()
 
+# Windows 可执行文件图标（朱砂印章）：configure 出绝对路径的 .rc 交给 windres
+if (WIN32)
+    enable_language(RC)
+    set(GWM_ICON_ICO "${CMAKE_CURRENT_SOURCE_DIR}/resources/app.ico")
+    configure_file(${CMAKE_CURRENT_SOURCE_DIR}/resources/app.rc.in
+                   ${CMAKE_CURRENT_BINARY_DIR}/app.rc @ONLY)
+    set(GWM_WIN_RC ${CMAKE_CURRENT_BINARY_DIR}/app.rc)
+endif()
+
 qt_add_executable(GifWaterMarkTool
     main.cpp
     core/paths.cpp
     core/gifprobe.cpp
     core/ffmpegrunner.cpp
+    ${GWM_WIN_RC}
 )
+
+# Theme.qml 是 QML 单例（pragma Singleton），需显式标记
+set_source_files_properties(qml/Theme.qml PROPERTIES QT_QML_SINGLETON_TYPE TRUE)
 
 qt_add_qml_module(GifWaterMarkTool
     URI GifWaterMarkTool
     QML_FILES
         qml/Main.qml
         qml/CanvasPreview.qml
-        qml/ParameterPanel.qml
+        qml/Inspector.qml
         qml/Toast.qml
+        qml/Theme.qml
+        qml/GlassPanel.qml
+        qml/AppButton.qml
+        qml/FileChip.qml
+        qml/Segmented.qml
+        qml/ParamSlider.qml
+        qml/NumberField.qml
+        qml/Section.qml
+        qml/ColorField.qml
+        qml/Select.qml
+        qml/SwitchRow.qml
+)
+
+# 窗口/任务栏图标：嵌入 :/icons/appicon.png，main.cpp 里 setWindowIcon
+qt_add_resources(GifWaterMarkTool "gwm_appicon"
+    PREFIX "/icons"
+    BASE "${CMAKE_CURRENT_SOURCE_DIR}/resources"
+    FILES "${CMAKE_CURRENT_SOURCE_DIR}/resources/appicon.png"
 )
 
 # Qt for iOS sets MACOSX_BUNDLE_GUI_IDENTIFIER automatically since Qt 6.1.

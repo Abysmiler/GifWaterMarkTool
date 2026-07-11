@@ -1,5 +1,6 @@
 #include <QGuiApplication>
 #include <QQmlApplicationEngine>
+#include <QIcon>
 #include <QSettings>
 #include <QFile>
 #include <QTextStream>
@@ -38,6 +39,13 @@ int main(int argc, char *argv[])
     qInstallMessageHandler(gwmMessageHandler);
 
     qDebug("==== GifWaterMarkTool 启动 dir=%s ====", qPrintable(app.applicationDirPath()));
+
+    // 窗口 / 任务栏图标（朱砂印章）
+    QIcon appIcon(QStringLiteral(":/icons/appicon.png"));
+    if (appIcon.isNull())
+        qWarning("窗口图标资源缺失: :/icons/appicon.png");
+    else
+        app.setWindowIcon(appIcon);
 
     // 所有设置持久化到 exe 同目录的 GifWaterMarkTool.ini
     QCoreApplication::setOrganizationName("GifWaterMarkTool");

@@ -49,7 +49,7 @@ Button {
             if (ctl.kind === "ghost")
                 return ctl.down    ? Theme.panelHi
                      : ctl.hovered ? Theme.panelHover
-                                   : "transparent"
+                                   : Qt.rgba(Theme.panelHover.r, Theme.panelHover.g, Theme.panelHover.b, 0)
             // soft
             return ctl.down    ? Theme.panel
                  : ctl.hovered ? Theme.panelHover

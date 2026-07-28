@@ -46,6 +46,7 @@ Flickable {
     signal wmXRequested(real v)
     signal wmYRequested(real v)
     signal centerRequested()
+    signal defaultRequested()
     signal maxWidthEdited(int v)
     signal targetFpsEdited(int v)
     signal qualityLevelEdited(int v)
@@ -233,21 +234,34 @@ Flickable {
                     Layout.fillWidth: true
                     prefix: "X"; from: -9999; to: 9999; step: 1
                     value: root.gifCenterX
+                    enabled: root.hasGif
                     onEdited: function(v) { root.wmXRequested(v) }
                 }
                 NumberField {
                     Layout.fillWidth: true
                     prefix: "Y"; from: -9999; to: 9999; step: 1
                     value: root.gifCenterY
+                    enabled: root.hasGif
                     onEdited: function(v) { root.wmYRequested(v) }
                 }
             }
-            AppButton {
+            RowLayout {
                 Layout.fillWidth: true
-                text: qsTr("把水印移到画面正中")
-                kind: "ghost"
-                enabled: root.hasGif
-                onClicked: root.centerRequested()
+                spacing: 10
+                AppButton {
+                    Layout.fillWidth: true
+                    text: qsTr("默认位置")
+                    kind: "ghost"
+                    enabled: root.hasGif
+                    onClicked: root.defaultRequested()
+                }
+                AppButton {
+                    Layout.fillWidth: true
+                    text: qsTr("移到正中")
+                    kind: "ghost"
+                    enabled: root.hasGif
+                    onClicked: root.centerRequested()
+                }
             }
         }
 

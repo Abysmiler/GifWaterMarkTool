@@ -64,9 +64,10 @@ Item {
     property real gifCenterX: 0
     property real gifCenterY: 0
 
-    // ---- 水印显示态 ----
-    readonly property bool hasImg: waterSource !== "" && !useTextWater && wm.status === Image.Ready
-    readonly property bool hasText: useTextWater && textContent !== ""
+    // ---- 水印显示态（必须有 GIF 才在台面上显示水印，否则空台面会飘着居中水印）----
+    readonly property bool hasGif: gifOrigW > 0
+    readonly property bool hasImg: hasGif && waterSource !== "" && !useTextWater && wm.status === Image.Ready
+    readonly property bool hasText: hasGif && useTextWater && textContent !== ""
     readonly property bool hasWm: hasImg || hasText
     readonly property real _wmW: hasImg ? wm.width : (hasText ? textWm.width : 0)
     readonly property real _wmH: hasImg ? wm.height : (hasText ? textWm.height : 0)

@@ -46,7 +46,7 @@ Rectangle {
         text: Math.round(root.value) + root.unit
         font.family: Theme.fontMono
         font.pixelSize: 13
-        color: Theme.text
+        color: root.enabled ? Theme.text : Theme.textFaint
         horizontalAlignment: TextInput.AlignHCenter
         verticalAlignment: TextInput.AlignVCenter
         selectByMouse: true
@@ -78,7 +78,7 @@ Rectangle {
             anchors.centerIn: parent
             text: parent.sign
             font.pixelSize: 14
-            color: Theme.textDim
+            color: root.enabled ? Theme.textDim : Theme.textFaint
         }
         MouseArea {
             id: sm

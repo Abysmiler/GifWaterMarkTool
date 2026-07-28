@@ -53,12 +53,16 @@ ApplicationWindow {
     property bool _restorePending: false
     property bool _suppressMemorySave: false
 
+    // 默认水印位置：由旧版 500×500 GIF 的绝对坐标 (370,485) 换算成比例 → 右下
+    readonly property real defPosXRatio: 370.0 / 500.0   // 0.74
+    readonly property real defPosYRatio: 485.0 / 500.0   // 0.97
+
     // ---- Settings ----
     Settings {
         id: wmSettings
         category: "watermark"
-        property real posXRatio: 0.5
-        property real posYRatio: 0.5
+        property real posXRatio: 0.74
+        property real posYRatio: 0.97
         property real scale: 1.0
         property real opacity: 1.0
         property real rotate: 0.0
@@ -69,6 +73,8 @@ ApplicationWindow {
         property string textContent: ""
         property int textFontSize: 24
         property string textColor: "#ffffff"
+        property real lastX: 0          // 上次水印绝对位置（仅用于无 GIF 时位置框显示）
+        property real lastY: 0
     }
     Settings {
         id: dlgSettings
@@ -98,6 +104,8 @@ ApplicationWindow {
             wmSettings.scale = window.wmScale
             wmSettings.opacity = window.wmOpacity
             wmSettings.rotate = window.wmRotate
+            wmSettings.lastX = preview.gifCenterX
+            wmSettings.lastY = preview.gifCenterY
         }
         // 记住上次水印时，连同水印本体一起存
         if (wmSettings.memoryEnabled) {
@@ -135,11 +143,12 @@ ApplicationWindow {
     onWaterPathChanged: {
         if (wmSettings.memoryEnabled && !_suppressMemorySave) wmSettings.waterPath = window.waterPath
         if (window.waterPath !== "" && window.gifPath !== "" && preview.gifOrigW > 0) {
-            // 有记忆→回到上次位置；否则放画面正中
+            // 有记忆→回到上次位置；否则落默认位置（右下）
             if (wmSettings.memoryEnabled)
                 preview.restorePosition(wmSettings.posXRatio, wmSettings.posYRatio)
             else
-                preview.setGifPosition(preview.gifOrigW / 2, preview.gifOrigH / 2)
+                preview.setGifPosition(preview.gifOrigW * window.defPosXRatio,
+                                       preview.gifOrigH * window.defPosYRatio)
         }
     }
     onUseTextWaterChanged: saveWmMemory()
@@ -156,6 +165,10 @@ ApplicationWindow {
             window.wmRotate = wmSettings.rotate
             preview.restorePosition(wmSettings.posXRatio, wmSettings.posYRatio)
             saveWmMemory()
+        } else if (preview.gifOrigW > 0) {
+            // 不记位置时，GIF 加载后水印落到默认位置（右下）
+            preview.setGifPosition(preview.gifOrigW * window.defPosXRatio,
+                                   preview.gifOrigH * window.defPosYRatio)
         }
     }
 
@@ -169,6 +182,9 @@ ApplicationWindow {
             window.textFontSize = wmSettings.textFontSize
             window.textColor = wmSettings.textColor
             window.waterPath = wmSettings.waterPath   // 最后赋值，触发 onWaterPathChanged（此时无 GIF，仅载入）
+            // 无 GIF 时也把上次位置填进位置框（台面不显示水印，但位置有内容）
+            preview.gifCenterX = wmSettings.lastX
+            preview.gifCenterY = wmSettings.lastY
             _suppressMemorySave = false
         }
     }
@@ -410,6 +426,8 @@ ApplicationWindow {
                 onWmXRequested: function(v) { preview.setGifPosition(v, preview.gifCenterY) }
                 onWmYRequested: function(v) { preview.setGifPosition(preview.gifCenterX, v) }
                 onCenterRequested: preview.setGifPosition(preview.gifOrigW / 2, preview.gifOrigH / 2)
+                onDefaultRequested: preview.setGifPosition(preview.gifOrigW * window.defPosXRatio,
+                                                           preview.gifOrigH * window.defPosYRatio)
                 onMaxWidthEdited: function(v) { window.maxWidth = v }
                 onTargetFpsEdited: function(v) { window.targetFps = v }
                 onQualityLevelEdited: function(v) { window.qualityLevel = v }

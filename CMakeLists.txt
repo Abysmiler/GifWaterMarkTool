@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.16)
 
-project(GifWaterMarkTool VERSION 1.0.1 LANGUAGES CXX)
+project(GifWaterMarkTool VERSION 1.0.2 LANGUAGES CXX)
 
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(QT_QML_GENERATE_QMLLS_INI ON)

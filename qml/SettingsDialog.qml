@@ -12,7 +12,7 @@ Item {
     visible: false
     z: 100
 
-    property string appVersion: "v1.0.1"
+    property string appVersion: "v1.0.2"
     property bool rememberWatermark: false
     property bool deepCompress: true
     property bool rememberOutFolder: true

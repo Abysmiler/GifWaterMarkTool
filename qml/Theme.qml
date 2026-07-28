@@ -44,10 +44,10 @@ QtObject {
     readonly property color warn:       "#DC4B2E"
     readonly property color warnWash:   "#FBEBE6"
 
-    // ---- 玻璃 ----
+    // ---- 玻璃（浅色主题：靠模糊+边框+投影呈现，白罩要薄，否则过亮）----
     readonly property color glassTint:    "#FFFFFF"
-    readonly property real  glassTintA:   0.42       // 磨砂白覆盖度
-    readonly property color glassBorder:  "#B8FFFFFF" // 高光描边（AARRGGBB）
+    readonly property real  glassTintA:   0.09       // 磨砂白覆盖度（薄，保留背后内容）
+    readonly property color glassBorder:  "#9AFFFFFF" // 发丝描边（AARRGGBB）
     readonly property color glassShadow:  "#22314A5E" // 冷灰投影
 
     // ---- 字族 ----

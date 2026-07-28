@@ -204,14 +204,10 @@ Item {
         anchors.centerIn: previewBox
         visible: root.previewSource === ""
         spacing: 14
-        Text {
+        AppMark {
             anchors.horizontalCenter: parent.horizontalCenter
-            text: "印"
-            font.family: Theme.fontUI
-            font.pixelSize: 46
-            font.bold: true
-            color: Theme.textFaint
-            opacity: 0.5
+            size: 60
+            opacity: 0.9
         }
         Text {
             anchors.horizontalCenter: parent.horizontalCenter

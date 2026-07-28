@@ -54,16 +54,16 @@ Item {
         textureSize: Qt.size(Math.max(1, gp.width / 2), Math.max(1, gp.height / 2))
     }
 
-    // 模糊 + 圆角裁剪 + 轻微提亮去饱和 → 磨砂
+    // 模糊 + 圆角裁剪 + 去饱和 → 磨砂（弱化：只要一点毛玻璃感，不要明显亮白）
     MultiEffect {
         anchors.fill: parent
         source: grab
         blurEnabled: true
-        blur: 1.0
-        blurMax: 40
+        blur: 0.45
+        blurMax: 26
         blurMultiplier: 1.0
-        brightness: 0.07
-        saturation: -0.15
+        brightness: 0.0
+        saturation: -0.18
         maskEnabled: true
         maskSource: rMask
     }
@@ -75,13 +75,13 @@ Item {
         color: Theme.glassTint
         opacity: Theme.glassTintA
     }
-    // 顶部高光斜面
+    // 顶部高光斜面（极弱，仅一丝）
     Rectangle {
         anchors.fill: parent
         radius: gp.radius
         gradient: Gradient {
-            GradientStop { position: 0.0; color: "#55FFFFFF" }
-            GradientStop { position: 0.4; color: "#00FFFFFF" }
+            GradientStop { position: 0.0; color: "#10FFFFFF" }
+            GradientStop { position: 0.3; color: "#00FFFFFF" }
         }
     }
     // 发丝描边

@@ -43,6 +43,7 @@ qt_add_qml_module(GifWaterMarkTool
         qml/Toast.qml
         qml/Theme.qml
         qml/GlassPanel.qml
+        qml/AppMark.qml
         qml/AppButton.qml
         qml/FileChip.qml
         qml/Segmented.qml
@@ -52,6 +53,7 @@ qt_add_qml_module(GifWaterMarkTool
         qml/ColorField.qml
         qml/Select.qml
         qml/SwitchRow.qml
+        qml/SettingsDialog.qml
 )
 
 # 窗口/任务栏图标：嵌入 :/icons/appicon.png，main.cpp 里 setWindowIcon

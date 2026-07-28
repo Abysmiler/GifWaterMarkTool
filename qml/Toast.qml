@@ -31,17 +31,28 @@ Rectangle {
         anchors.rightMargin: 8
         spacing: 10
 
-        Rectangle {
-            width: 24; height: 24; radius: Theme.radiusXs
+        Item {
+            width: 24; height: 24
             anchors.verticalCenter: parent.verticalCenter
-            color: root.success ? Theme.ok : Theme.warn
-            Text {
-                anchors.centerIn: parent
-                text: root.success ? "印" : "!"
-                font.family: Theme.fontUI
-                font.pixelSize: root.success ? 13 : 15
-                font.bold: true
-                color: root.success ? Theme.okWash : Theme.warnWash
+            // 成功：应用图标；失败：警示徽记
+            AppMark {
+                anchors.fill: parent
+                size: 24
+                visible: root.success
+            }
+            Rectangle {
+                anchors.fill: parent
+                radius: Theme.radiusXs
+                color: Theme.warn
+                visible: !root.success
+                Text {
+                    anchors.centerIn: parent
+                    text: "!"
+                    font.family: Theme.fontUI
+                    font.pixelSize: 15
+                    font.bold: true
+                    color: Theme.warnWash
+                }
             }
         }
         Text {

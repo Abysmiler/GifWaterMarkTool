@@ -63,6 +63,12 @@ ApplicationWindow {
         property real opacity: 1.0
         property real rotate: 0.0
         property bool memoryEnabled: true
+        // 记住上次水印时一并持久化的水印本体
+        property string waterPath: ""
+        property bool useTextWater: false
+        property string textContent: ""
+        property int textFontSize: 24
+        property string textColor: "#ffffff"
     }
     Settings {
         id: dlgSettings
@@ -70,6 +76,12 @@ ApplicationWindow {
         property string gifFolder: ""
         property string waterFolder: ""
         property string outFolder: ""
+    }
+    Settings {
+        id: prefs
+        category: "preferences"
+        property bool deepCompress: true      // 默认启用深度压缩
+        property bool rememberOutFolder: true // 记住上次导出文件夹
     }
     Settings {
         id: uiSettings
@@ -87,6 +99,14 @@ ApplicationWindow {
             wmSettings.opacity = window.wmOpacity
             wmSettings.rotate = window.wmRotate
         }
+        // 记住上次水印时，连同水印本体一起存
+        if (wmSettings.memoryEnabled) {
+            wmSettings.waterPath = window.waterPath
+            wmSettings.useTextWater = window.useTextWater
+            wmSettings.textContent = window.textContent
+            wmSettings.textFontSize = window.textFontSize
+            wmSettings.textColor = window.textColor
+        }
     }
 
     onGifPathChanged: {
@@ -95,22 +115,37 @@ ApplicationWindow {
         _restorePending = wmSettings.memoryEnabled
         if (window.gifPath !== "") {
             _previewPath = runner.extractPreview(window.gifPath)
-            var oldDir = window.outPath.replace(/[\\/][^\\/]+$/, "")
-            if (oldDir !== "" && oldDir !== window.outPath) {
+            // 导出路径：记住文件夹→用上次目录；否则留空待用户选择
+            var dir = ""
+            if (prefs.rememberOutFolder && dlgSettings.outFolder !== "") {
+                dir = dlgSettings.outFolder
+            }
+            if (dir !== "") {
                 var gifName = window.gifPath.replace(/^.*[\\/]/, "").replace(/\.gif$/i, "")
                 var d = new Date()
                 var ts = "" + d.getFullYear() + pad(d.getMonth()+1) + pad(d.getDate())
                           + pad(d.getHours()) + pad(d.getMinutes()) + pad(d.getSeconds())
-                window.outPath = oldDir + "/" + gifName + "_" + ts + ".gif"
+                window.outPath = dir + "/" + gifName + "_" + ts + ".gif"
+            } else {
+                window.outPath = ""
             }
         }
     }
 
     onWaterPathChanged: {
+        if (wmSettings.memoryEnabled && !_suppressMemorySave) wmSettings.waterPath = window.waterPath
         if (window.waterPath !== "" && window.gifPath !== "" && preview.gifOrigW > 0) {
-            preview.setGifPosition(370, 485)
+            // 有记忆→回到上次位置；否则放画面正中
+            if (wmSettings.memoryEnabled)
+                preview.restorePosition(wmSettings.posXRatio, wmSettings.posYRatio)
+            else
+                preview.setGifPosition(preview.gifOrigW / 2, preview.gifOrigH / 2)
         }
     }
+    onUseTextWaterChanged: saveWmMemory()
+    onTextContentChanged: saveWmMemory()
+    onTextFontSizeChanged: saveWmMemory()
+    onTextColorChanged: saveWmMemory()
 
     function onPreviewReady() {
         _suppressMemorySave = false
@@ -122,6 +157,26 @@ ApplicationWindow {
             preview.restorePosition(wmSettings.posXRatio, wmSettings.posYRatio)
             saveWmMemory()
         }
+    }
+
+    // 启动恢复：深度压缩默认值 + 上次水印（图片/文字，位置随 GIF 加载后再恢复）
+    Component.onCompleted: {
+        window.deepOptimize = prefs.deepCompress
+        if (wmSettings.memoryEnabled) {
+            _suppressMemorySave = true
+            window.useTextWater = wmSettings.useTextWater
+            window.textContent = wmSettings.textContent
+            window.textFontSize = wmSettings.textFontSize
+            window.textColor = wmSettings.textColor
+            window.waterPath = wmSettings.waterPath   // 最后赋值，触发 onWaterPathChanged（此时无 GIF，仅载入）
+            _suppressMemorySave = false
+        }
+    }
+
+    // 深度压缩：设置项与检视器共用同一持久值
+    function setDeepOptimize(v) {
+        window.deepOptimize = v
+        prefs.deepCompress = v
     }
 
     function pad(n) { return n < 10 ? "0" + n : "" + n }
@@ -239,19 +294,10 @@ ApplicationWindow {
                 anchors.leftMargin: 14; anchors.rightMargin: 14
                 spacing: 14
 
-                // 字标：朱砂印
+                // 字标：应用图标
                 RowLayout {
                     spacing: 10
-                    Rectangle {
-                        width: 32; height: 32; radius: Theme.radiusSm
-                        color: Theme.seal
-                        Text {
-                            anchors.centerIn: parent
-                            text: "印"; color: "#ffffff"
-                            font.family: Theme.fontUI
-                            font.pixelSize: 18; font.bold: true
-                        }
-                    }
+                    AppMark { size: 32 }
                     ColumnLayout {
                         spacing: 0
                         Text {
@@ -292,6 +338,11 @@ ApplicationWindow {
 
                 Item { Layout.fillWidth: true }
 
+                AppButton {
+                    text: qsTr("设置")
+                    kind: "ghost"
+                    onClicked: settingsDlg.open()
+                }
                 AppButton {
                     text: qsTr("取消")
                     kind: "ghost"
@@ -363,7 +414,7 @@ ApplicationWindow {
                 onTargetFpsEdited: function(v) { window.targetFps = v }
                 onQualityLevelEdited: function(v) { window.qualityLevel = v }
                 onDitherModeEdited: function(v) { window.ditherMode = v }
-                onDeepOptimizeToggled: function(v) { window.deepOptimize = v }
+                onDeepOptimizeToggled: function(v) { window.setDeepOptimize(v) }
                 onMemoryToggled: function(v) { wmSettings.memoryEnabled = v }
                 onCanvasCheckerRequested: uiSettings.checker = true
                 onCanvasColorRequested: function(hex) { uiSettings.checker = false; uiSettings.bg = hex }
@@ -433,18 +484,9 @@ ApplicationWindow {
                + (rootArea.height - (window.m + window.stripH + window.m) - (window.m + window.statusH + window.m)) / 2
                - height / 2
             function press() { stampAnim.restart() }
-            Rectangle {
-                anchors.fill: parent
-                radius: 22
-                color: Theme.sealWash
-                border.width: 4
-                border.color: Theme.seal
-                Text {
-                    anchors.centerIn: parent
-                    text: "印"; color: Theme.seal
-                    font.family: Theme.fontUI
-                    font.pixelSize: 88; font.bold: true
-                }
+            AppMark {
+                anchors.centerIn: parent
+                size: 132
             }
             SequentialAnimation {
                 id: stampAnim
@@ -468,6 +510,18 @@ ApplicationWindow {
             width: parent.width * (runner.progress / 100)
             color: Theme.seal
             Behavior on width { NumberAnimation { duration: 120 } }
+        }
+
+        // ===== 设置弹窗（毛玻璃，浮于应用之上）=====
+        SettingsDialog {
+            id: settingsDlg
+            appVersion: "v1.0.1"
+            rememberWatermark: wmSettings.memoryEnabled
+            deepCompress: prefs.deepCompress
+            rememberOutFolder: prefs.rememberOutFolder
+            onRememberWatermarkToggled: function(v) { wmSettings.memoryEnabled = v }
+            onDeepCompressToggled: function(v) { window.setDeepOptimize(v) }
+            onRememberOutFolderToggled: function(v) { prefs.rememberOutFolder = v }
         }
     }
 

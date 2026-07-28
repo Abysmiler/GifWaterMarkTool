@@ -384,16 +384,5 @@ Flickable {
                 onToggled: function(v) { root.deepOptimizeToggled(v) }
             }
         }
-
-        HRule {}
-
-        // ===== 偏好 =====
-        SwitchRow {
-            Layout.fillWidth: true
-            text: qsTr("记住水印设置")
-            caption: qsTr("换 GIF 时沿用当前的位置和样式")
-            checked: root.memoryEnabled
-            onToggled: function(v) { root.memoryToggled(v) }
-        }
     }
 }

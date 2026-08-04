@@ -61,6 +61,7 @@ ApplicationWindow {
     Settings {
         id: wmSettings
         category: "watermark"
+        property int version: 1     // 1=旧版（无此键时读到 1，触发一次性迁移）；2=当前版（默认右下）
         property real posXRatio: 0.74
         property real posYRatio: 0.97
         property real scale: 1.0
@@ -174,6 +175,17 @@ ApplicationWindow {
 
     // 启动恢复：深度压缩默认值 + 上次水印（图片/文字，位置随 GIF 加载后再恢复）
     Component.onCompleted: {
+        // v1→v2 迁移：旧版位置默认是正中（0.5/0.5），且 GIF 加载时会自动把该值存进 ini，
+        // 升级后 ini 里的陈旧 0.5/0.5 会让 restorePosition 把水印落回屏幕中间。
+        // 精确 0.5/0.5 是旧默认的残留特征（用户主动移正中也会存成 0.5，可接受误迁移，用「移到正中」找回）
+        if (wmSettings.version < 2) {
+            wmSettings.version = 2
+            if (Math.abs(wmSettings.posXRatio - 0.5) < 0.001
+                    && Math.abs(wmSettings.posYRatio - 0.5) < 0.001) {
+                wmSettings.posXRatio = window.defPosXRatio
+                wmSettings.posYRatio = window.defPosYRatio
+            }
+        }
         window.deepOptimize = prefs.deepCompress
         if (wmSettings.memoryEnabled) {
             _suppressMemorySave = true

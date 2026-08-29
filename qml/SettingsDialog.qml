@@ -12,13 +12,18 @@ Item {
     visible: false
     z: 100
 
-    property string appVersion: "v1.0.2"
+    property string appVersion: "v1.0.3"
     property bool rememberWatermark: false
     property bool deepCompress: true
     property bool rememberOutFolder: true
 
     // 更新日志（新到旧）。发版时在顶部补一条，与 appVersion 同步维护。
     property var changelog: [
+        { version: "v1.0.3", date: "2026-08-29", items: [
+            "GIF 支持多选批量导出：预览与水印设置基于第一张，位置按比例换算到各张尺寸",
+            "导出失败统一弹结果面板：单张失败不再中断队列，支持一键重试失败项",
+            "设置弹窗新增更新日志",
+        ]},
         { version: "v1.0.2", date: "2026-07-28", items: [
             "修复升级后水印残留正中默认位置的问题，新增设置版本迁移",
             "无 GIF 不显示水印、默认位置改右下、位置区双按钮、按钮闪烁修复",

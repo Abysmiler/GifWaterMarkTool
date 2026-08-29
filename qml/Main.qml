@@ -273,10 +273,11 @@ ApplicationWindow {
     }
 
     function startExport() {
-        if (window.gifPaths.length > 1)
-            runBatch(window.gifPaths.slice())
-        else
-            runner.exportGif()
+        // 单张/多张统一走批量管线：成功→印章+toast，失败→结果面板+可重试
+        var queue = window.gifPaths.length > 0 ? window.gifPaths.slice()
+                 : (window.gifPath !== "" ? [window.gifPath] : [])
+        if (queue.length === 0) return
+        runBatch(queue)
     }
 
     // 重试入口也走这里：队列取快照，跑完后只把失败项留在 batchFailed
@@ -301,7 +302,9 @@ ApplicationWindow {
         var ry = preview.gifOrigH > 0 ? preview.gifCenterY / preview.gifOrigH : window.defPosYRatio
         window.batchWmX = rx * Math.max(1, s.width)
         window.batchWmY = ry * Math.max(1, s.height)
-        window.batchOutPath = makeOutPath(p)
+        window.batchOutPath = (window.batchQueue.length === 1 && window.outPath !== "")
+            ? window.outPath          // 单张沿用选文件时生成的路径，与 FileChip 显示一致
+            : makeOutPath(p)
         runner.exportGif()
     }
 
@@ -326,11 +329,12 @@ ApplicationWindow {
         textFontSize: window.textFontSize
         textColor: window.textColor
         onFinished: function(ok, status, path, err) {
+            // 单张与批量统一走队列管线（单张=队列长度 1）
             if (window.batchActive) {
                 // 取消：中止整个队列
                 if (status === FFmpegRunner.ExportCancelled) {
                     window.batchActive = false
-                    toast.show(qsTr("已取消批量导出"), false, "")
+                    toast.show(qsTr("已取消"), false, "")
                     return
                 }
                 // 逐张隔离：失败只记录，不打断后续
@@ -346,18 +350,18 @@ ApplicationWindow {
                     Qt.callLater(window.exportBatchItem)
                 } else {
                     window.batchActive = false
-                    if (window.batchFailCount > 0)
+                    if (window.batchFailCount > 0) {
                         resultDlg.show(window.batchFailed, window.batchOkCount, window.batchQueue.length)
-                    else {
+                    } else if (window.batchQueue.length > 1) {
                         toast.show(qsTr("批量导出完成 · 共 %1 张").arg(window.batchOkCount), true, window.batchOutPath)
+                        stamp.press()
+                    } else {
+                        toast.show(qsTr("导出完成"), true, window.batchOutPath)
                         stamp.press()
                     }
                 }
                 return
             }
-            if (ok) { toast.show(qsTr("导出完成"), true, path); stamp.press() }
-            else if (status === FFmpegRunner.ExportCancelled) toast.show(qsTr("已取消"), false, "")
-            else toast.show(qsTr("导出失败") + (err ? " · " + err : ""), false, "")
         }
     }
 
@@ -614,7 +618,7 @@ ApplicationWindow {
                 }
                 Text {
                     visible: runner.running
-                    text: window.batchActive
+                    text: window.batchActive && window.batchQueue.length > 1
                           ? qsTr("第 %1/%2 张 · 导出中 %3%")
                             .arg(window.batchIndex + 1).arg(window.batchQueue.length).arg(runner.progress)
                           : qsTr("导出中 ") + runner.progress + "%"

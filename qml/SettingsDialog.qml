@@ -17,6 +17,22 @@ Item {
     property bool deepCompress: true
     property bool rememberOutFolder: true
 
+    // 更新日志（新到旧）。发版时在顶部补一条，与 appVersion 同步维护。
+    property var changelog: [
+        { version: "v1.0.2", date: "2026-07-28", items: [
+            "修复升级后水印残留正中默认位置的问题，新增设置版本迁移",
+            "无 GIF 不显示水印、默认位置改右下、位置区双按钮、按钮闪烁修复",
+        ]},
+        { version: "v1.0.1", date: "2026-07-11", items: [
+            "界面改版为浅色毛玻璃风格，新增自绘组件库与应用图标",
+            "新增设置弹窗（记忆水印 / 默认深度压缩 / 记忆导出文件夹）",
+        ]},
+        { version: "v1.0.0", date: "2026-07-05", items: [
+            "首个版本：GIF 图片 / 文字水印，拖拽、缩放、旋转调整",
+            "导出参数可调（分辨率 / 帧率 / 调色板 / 抖动），gifsicle 深度优化",
+        ]},
+    ]
+
     signal closed()
     signal rememberWatermarkToggled(bool v)
     signal deepCompressToggled(bool v)
@@ -173,6 +189,62 @@ Item {
                             caption: qsTr("下次导出默认存到上次用的文件夹")
                             checked: dlg.rememberOutFolder
                             onToggled: function(v) { dlg.rememberOutFolderToggled(v) }
+                        }
+                    }
+
+                    // ---------- 更新日志 ----------
+                    Section {
+                        Layout.fillWidth: true
+                        Layout.leftMargin: Theme.pad
+                        Layout.rightMargin: Theme.pad
+                        title: qsTr("更新日志")
+                        subtitle: "CHANGELOG"
+
+                        Repeater {
+                            model: dlg.changelog
+
+                            ColumnLayout {
+                                required property var modelData
+                                required property int index
+                                Layout.fillWidth: true
+                                spacing: 4
+
+                                Rectangle {
+                                    visible: index > 0
+                                    Layout.fillWidth: true
+                                    height: 1
+                                    color: Theme.lineSoft
+                                }
+                                RowLayout {
+                                    Layout.fillWidth: true
+                                    spacing: 8
+                                    Text {
+                                        text: modelData.version
+                                        color: Theme.text
+                                        font.family: Theme.fontMono
+                                        font.pixelSize: 12; font.bold: true
+                                    }
+                                    Text {
+                                        text: modelData.date
+                                        color: Theme.textFaint
+                                        font.family: Theme.fontMono
+                                        font.pixelSize: 9
+                                    }
+                                    Item { Layout.fillWidth: true }
+                                }
+                                Repeater {
+                                    model: modelData.items
+                                    Text {
+                                        required property string modelData
+                                        Layout.fillWidth: true
+                                        text: "· " + modelData
+                                        color: Theme.textDim
+                                        font.family: Theme.fontUI
+                                        font.pixelSize: 11
+                                        wrapMode: Text.WordWrap
+                                    }
+                                }
+                            }
                         }
                     }
 

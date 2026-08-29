@@ -694,8 +694,8 @@ ApplicationWindow {
                     .arg(okCount).arg(failed.length).arg(total)
                 retryBtn.text = qsTr("重试失败项（%1）").arg(failed.length)
                 failList.contentY = 0
-                panel.x = (resultDlg.width - panel.width) / 2
-                panel.y = (resultDlg.height - panel.height) / 2
+                resultPanel.x = (resultDlg.width - resultPanel.width) / 2
+                resultPanel.y = (resultDlg.height - resultPanel.height) / 2
                 resultDlg.visible = true
             }
             function close() { resultDlg.visible = false }

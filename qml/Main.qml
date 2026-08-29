@@ -692,7 +692,7 @@ ApplicationWindow {
                 resultDlg.failedItems = failed
                 summaryText.text = qsTr("成功 %1 · 失败 %2 · 共 %3 张")
                     .arg(okCount).arg(failed.length).arg(total)
-                retryBtn.text = qsTr("重试失败项（%1）").arg(failed.length)
+                retryBtn.text = qsTr("重试")
                 failList.contentY = 0
                 resultPanel.x = (resultDlg.width - resultPanel.width) / 2
                 resultPanel.y = (resultDlg.height - resultPanel.height) / 2

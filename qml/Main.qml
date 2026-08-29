@@ -2,6 +2,7 @@ import QtQuick
 import QtQuick.Layouts
 import QtQuick.Controls.Basic
 import QtQuick.Dialogs
+import QtQuick.Effects
 import QtCore
 import GifWaterMarkTool
 
@@ -52,6 +53,29 @@ ApplicationWindow {
     property string _previewPath: ""
     property bool _restorePending: false
     property bool _suppressMemorySave: false
+
+    // ---- 多选与批量导出 ----
+    property var gifPaths: []            // 本次选择的全部 GIF（首张即预览/水印基准）
+    property var batchQueue: []          // 批量快照（批量期间用户改选不影响队列）
+    property bool batchActive: false     // 批量导出进行中
+    property int  batchIndex: 0          // 当前导出第几张（0 基）
+    property int  batchOkCount: 0
+    property int  batchFailCount: 0
+    property var  batchFailed: []        // [{path, err}]
+    property string batchGifPath: ""     // 批量当前项的导出输入
+    property string batchOutPath: ""     // 批量当前项的导出输出
+    property real batchWmX: 0
+    property real batchWmY: 0
+
+    // 批量时把导出目标/定位与预览解耦：预览与水印设置始终停在第一张，
+    // 后续张的位置按首张比例换算（wmScale/透明度/旋转与 GIF 尺寸无关，直接复用）
+    readonly property string exportGifPath: batchActive ? batchGifPath : gifPath
+    readonly property string exportOutPath: batchActive ? batchOutPath : outPath
+    readonly property real exportWmX: batchActive ? batchWmX : preview.gifCenterX
+    readonly property real exportWmY: batchActive ? batchWmY : preview.gifCenterY
+    readonly property real exportOverallPct: batchActive
+        ? (batchIndex * 100 + runner.progress) / Math.max(1, batchQueue.length)
+        : runner.progress
 
     // 默认水印位置：由旧版 500×500 GIF 的绝对坐标 (370,485) 换算成比例 → 右下
     readonly property real defPosXRatio: 370.0 / 500.0   // 0.74
@@ -225,14 +249,70 @@ ApplicationWindow {
         return ""
     }
 
+    // ---- 多选与批量导出 ----
+    // 多选入口：首张进预览/水印流程，全量存入 gifPaths 供批量导出
+    function setGifSelection(paths) {
+        if (!paths || paths.length === 0) return
+        window.gifPaths = paths
+        window.gifPath = paths[0]
+    }
+
+    function makeTimestamp() {
+        var d = new Date()
+        return "" + d.getFullYear() + pad(d.getMonth()+1) + pad(d.getDate())
+                  + pad(d.getHours()) + pad(d.getMinutes()) + pad(d.getSeconds())
+    }
+
+    function makeOutPath(p) {
+        var dir = dlgSettings.outFolder
+        if (dir === "" && window.outPath !== "")
+            dir = window.outPath.replace(/[\\/][^\\/]*$/, "")
+        if (dir === "") return ""
+        var name = baseName(p).replace(/\.gif$/i, "")
+        return dir + "/" + name + "_" + makeTimestamp() + ".gif"
+    }
+
+    function startExport() {
+        if (window.gifPaths.length > 1)
+            runBatch(window.gifPaths.slice())
+        else
+            runner.exportGif()
+    }
+
+    // 重试入口也走这里：队列取快照，跑完后只把失败项留在 batchFailed
+    function runBatch(paths) {
+        window.batchQueue = paths
+        window.batchOkCount = 0
+        window.batchFailCount = 0
+        window.batchFailed = []
+        window.batchIndex = 0
+        window.batchActive = true
+        exportBatchItem()
+    }
+
+    // 导出队列当前张。位置按首张比例换算到本张画布尺寸；
+    // 单张瞬间失败（文件缺失等）会同步 emit finished，由 callLater 逐张消化避免重入。
+    function exportBatchItem() {
+        if (!window.batchActive || window.batchIndex >= window.batchQueue.length) return
+        var p = window.batchQueue[window.batchIndex]
+        window.batchGifPath = p
+        var s = runner.gifSize(p)
+        var rx = preview.gifOrigW > 0 ? preview.gifCenterX / preview.gifOrigW : window.defPosXRatio
+        var ry = preview.gifOrigH > 0 ? preview.gifCenterY / preview.gifOrigH : window.defPosYRatio
+        window.batchWmX = rx * Math.max(1, s.width)
+        window.batchWmY = ry * Math.max(1, s.height)
+        window.batchOutPath = makeOutPath(p)
+        runner.exportGif()
+    }
+
     // ---- FFmpegRunner ----
     FFmpegRunner {
         id: runner
-        gifPath: window.gifPath
+        gifPath: window.exportGifPath
         waterPath: window.waterPath
-        outPath: window.outPath
-        wmX: preview.gifCenterX
-        wmY: preview.gifCenterY
+        outPath: window.exportOutPath
+        wmX: window.exportWmX
+        wmY: window.exportWmY
         wmScale: window.wmScale
         wmOpacity: window.wmOpacity
         wmRotate: window.wmRotate
@@ -246,6 +326,35 @@ ApplicationWindow {
         textFontSize: window.textFontSize
         textColor: window.textColor
         onFinished: function(ok, status, path, err) {
+            if (window.batchActive) {
+                // 取消：中止整个队列
+                if (status === FFmpegRunner.ExportCancelled) {
+                    window.batchActive = false
+                    toast.show(qsTr("已取消批量导出"), false, "")
+                    return
+                }
+                // 逐张隔离：失败只记录，不打断后续
+                if (ok) {
+                    window.batchOkCount++
+                } else {
+                    window.batchFailCount++
+                    var reason = String(err || "").replace(/\s+/g, " ").slice(0, 200)
+                    window.batchFailed.push({ path: window.batchGifPath, err: reason })
+                }
+                window.batchIndex++
+                if (window.batchIndex < window.batchQueue.length) {
+                    Qt.callLater(window.exportBatchItem)
+                } else {
+                    window.batchActive = false
+                    if (window.batchFailCount > 0)
+                        resultDlg.show(window.batchFailed, window.batchOkCount, window.batchQueue.length)
+                    else {
+                        toast.show(qsTr("批量导出完成 · 共 %1 张").arg(window.batchOkCount), true, window.batchOutPath)
+                        stamp.press()
+                    }
+                }
+                return
+            }
             if (ok) { toast.show(qsTr("导出完成"), true, path); stamp.press() }
             else if (status === FFmpegRunner.ExportCancelled) toast.show(qsTr("已取消"), false, "")
             else toast.show(qsTr("导出失败") + (err ? " · " + err : ""), false, "")
@@ -302,10 +411,17 @@ ApplicationWindow {
             anchors.fill: parent
             onEntered: function(drag) { drag.accepted = drag.hasUrls }
             onDropped: function(drop) {
-                var path = urlToPath(drop.urls[0])
-                var lower = path.toLowerCase()
-                if (lower.endsWith(".gif")) window.gifPath = path
-                else if (lower.endsWith(".png")) window.waterPath = path
+                // 拖入多张：GIF 全收（首张进预览），PNG 取第一张作水印
+                var gifs = []
+                var png = ""
+                for (var i = 0; i < drop.urls.length; i++) {
+                    var p = urlToPath(drop.urls[i])
+                    var lower = p.toLowerCase()
+                    if (lower.endsWith(".gif")) gifs.push(p)
+                    else if (png === "" && lower.endsWith(".png")) png = p
+                }
+                if (gifs.length > 0) window.setGifSelection(gifs)
+                if (png !== "") window.waterPath = png
             }
         }
 
@@ -349,10 +465,13 @@ ApplicationWindow {
                     glyph: "GIF"
                     role: qsTr("GIF 文件")
                     accent: Theme.jade
-                    value: window.gifPath ? window.baseName(window.gifPath) : ""
-                    hint: qsTr("点击选择或拖入")
+                    value: window.gifPath
+                           ? window.baseName(window.gifPath)
+                             + (window.gifPaths.length > 1 ? qsTr(" 等 %1 张").arg(window.gifPaths.length) : "")
+                           : ""
+                    hint: qsTr("点击选择或拖入（可多选）")
                     onClicked: gifDialog.open()
-                    onCleared: { window.gifPath = ""; window._previewPath = "" }
+                    onCleared: { window.gifPath = ""; window.gifPaths = []; window._previewPath = "" }
                 }
                 FileChip {
                     glyph: "OUT"
@@ -384,7 +503,7 @@ ApplicationWindow {
                     implicitHeight: 38
                     leftPadding: 18; rightPadding: 18
                     enabled: window.canExport
-                    onClicked: runner.exportGif()
+                    onClicked: window.startExport()
                     ToolTip.visible: hovered && !window.canExport && !runner.running
                     ToolTip.text: window.exportBlockReason()
                     ToolTip.delay: 300
@@ -495,7 +614,10 @@ ApplicationWindow {
                 }
                 Text {
                     visible: runner.running
-                    text: qsTr("导出中 ") + runner.progress + "%"
+                    text: window.batchActive
+                          ? qsTr("第 %1/%2 张 · 导出中 %3%")
+                            .arg(window.batchIndex + 1).arg(window.batchQueue.length).arg(runner.progress)
+                          : qsTr("导出中 ") + runner.progress + "%"
                     color: Theme.seal
                     font.family: Theme.fontMono
                     font.pixelSize: 11
@@ -531,13 +653,13 @@ ApplicationWindow {
             }
         }
 
-        // ===== 底部细进度线 =====
+        // ===== 底部细进度线（批量时按整体进度走）=====
         Rectangle {
             visible: runner.running
             anchors.left: parent.left
             anchors.bottom: parent.bottom
             height: 3
-            width: parent.width * (runner.progress / 100)
+            width: parent.width * (window.exportOverallPct / 100)
             color: Theme.seal
             Behavior on width { NumberAnimation { duration: 120 } }
         }
@@ -553,16 +675,199 @@ ApplicationWindow {
             onDeepCompressToggled: function(v) { window.setDeepOptimize(v) }
             onRememberOutFolderToggled: function(v) { prefs.rememberOutFolder = v }
         }
+
+        // ===== 导出结果面板（批量存在失败时弹出；列出失败原因并支持只重试失败项）=====
+        Item {
+            id: resultDlg
+            anchors.fill: parent
+            visible: false
+            z: 95
+
+            property var failedItems: []   // [{path, err}]
+
+            // 遮罩只拦截点击：不点外关闭，防误碰丢掉重试清单
+            MouseArea { anchors.fill: parent }
+
+            function show(failed, okCount, total) {
+                resultDlg.failedItems = failed
+                summaryText.text = qsTr("成功 %1 · 失败 %2 · 共 %3 张")
+                    .arg(okCount).arg(failed.length).arg(total)
+                retryBtn.text = qsTr("重试失败项（%1）").arg(failed.length)
+                failList.contentY = 0
+                panel.x = (resultDlg.width - panel.width) / 2
+                panel.y = (resultDlg.height - panel.height) / 2
+                resultDlg.visible = true
+            }
+            function close() { resultDlg.visible = false }
+            function retry() {
+                var paths = resultDlg.failedItems.map(function(it) { return it.path })
+                resultDlg.close()
+                window.gifPaths = paths
+                window.runBatch(paths)
+            }
+
+            Item {
+                id: resultPanel
+                width: Math.min(480, resultDlg.width - 48)
+                height: Math.min(420, resultDlg.height - 64)
+                opacity: resultDlg.visible ? 1.0 : 0.0
+                scale: resultDlg.visible ? 1.0 : 0.97
+                Behavior on opacity { NumberAnimation { duration: Theme.slide } }
+                Behavior on scale { NumberAnimation { duration: Theme.slide; easing.type: Easing.OutCubic } }
+
+                // 投影（同设置弹窗）
+                Rectangle {
+                    id: resultShadow
+                    anchors.fill: parent
+                    radius: 16; color: "#000000"
+                    visible: false; layer.enabled: true
+                }
+                MultiEffect {
+                    anchors.fill: parent
+                    source: resultShadow
+                    blurEnabled: true; blur: 1.0; blurMax: 32
+                    opacity: 0.18
+                    transform: Translate { y: 7 }
+                }
+                Rectangle {
+                    anchors.fill: parent
+                    radius: 16
+                    color: Theme.panel
+                    border.width: 1; border.color: Theme.line
+                }
+
+                ColumnLayout {
+                    anchors.fill: parent
+                    spacing: 0
+
+                    // 标题栏
+                    Item {
+                        Layout.fillWidth: true
+                        Layout.preferredHeight: 54
+                        RowLayout {
+                            anchors.fill: parent
+                            anchors.leftMargin: 16; anchors.rightMargin: 8
+                            spacing: 10
+                            Text {
+                                text: qsTr("导出结果")
+                                color: Theme.text
+                                font.family: Theme.fontUI
+                                font.pixelSize: 15; font.bold: true
+                            }
+                            Text {
+                                id: summaryText
+                                color: Theme.textDim
+                                font.family: Theme.fontMono
+                                font.pixelSize: 11
+                                Layout.fillWidth: true
+                            }
+                            AppButton {
+                                text: "×"
+                                kind: "ghost"
+                                implicitHeight: 32
+                                onClicked: resultDlg.close()
+                            }
+                        }
+                        Rectangle { anchors.bottom: parent.bottom; width: parent.width; height: 1; color: Theme.lineSoft }
+                    }
+
+                    // 失败清单
+                    Flickable {
+                        id: failList
+                        Layout.fillWidth: true
+                        Layout.fillHeight: true
+                        contentWidth: width
+                        contentHeight: failCol.implicitHeight + 2 * Theme.pad
+                        clip: true
+                        boundsBehavior: Flickable.StopAtBounds
+                        ScrollBar.vertical: ScrollBar { policy: ScrollBar.AsNeeded }
+
+                        ColumnLayout {
+                            id: failCol
+                            y: Theme.pad
+                            width: failList.width
+                            spacing: Theme.gap
+
+                            Repeater {
+                                model: resultDlg.failedItems
+
+                                ColumnLayout {
+                                    required property var modelData
+                                    Layout.fillWidth: true
+                                    Layout.leftMargin: Theme.pad
+                                    Layout.rightMargin: Theme.pad
+                                    spacing: 2
+
+                                    RowLayout {
+                                        Layout.fillWidth: true
+                                        spacing: 8
+                                        Rectangle { width: 6; height: 6; radius: 3; color: Theme.seal }
+                                        Text {
+                                            Layout.fillWidth: true
+                                            text: window.baseName(modelData.path)
+                                            color: Theme.text
+                                            font.family: Theme.fontMono
+                                            font.pixelSize: 12
+                                            elide: Text.ElideMiddle
+                                        }
+                                    }
+                                    Text {
+                                        Layout.fillWidth: true
+                                        Layout.leftMargin: 14
+                                        text: modelData.err !== "" ? modelData.err : qsTr("未知错误")
+                                        color: Theme.textFaint
+                                        font.family: Theme.fontUI
+                                        font.pixelSize: 10
+                                        wrapMode: Text.WordWrap
+                                        maximumLineCount: 2
+                                        elide: Text.ElideRight
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    // 底栏
+                    Item {
+                        Layout.fillWidth: true
+                        Layout.preferredHeight: 54
+                        Rectangle { anchors.top: parent.top; width: parent.width; height: 1; color: Theme.lineSoft }
+                        RowLayout {
+                            anchors.fill: parent
+                            anchors.rightMargin: 14
+                            spacing: 10
+                            Item { Layout.fillWidth: true }
+                            AppButton {
+                                id: retryBtn
+                                text: qsTr("重试失败项")
+                                kind: "primary"
+                                implicitHeight: 34
+                                leftPadding: 22; rightPadding: 22
+                                onClicked: resultDlg.retry()
+                            }
+                            AppButton {
+                                text: qsTr("关闭")
+                                kind: "ghost"
+                                implicitHeight: 34
+                                leftPadding: 22; rightPadding: 22
+                                onClicked: resultDlg.close()
+                            }
+                        }
+                    }
+                }
+            }
+        }
     }
 
     // ---- 文件对话框 ----
     FileDialog {
         id: gifDialog
-        title: qsTr("选择 GIF")
+        title: qsTr("选择 GIF（可按住 Ctrl 多选）")
         nameFilters: ["GIF (*.gif)"]
+        fileMode: FileDialog.OpenFiles
         currentFolder: dlgSettings.gifFolder !== "" ? "file:///" + dlgSettings.gifFolder : ""
         onAccepted: {
-            window.gifPath = urlToPath(selectedFile)
+            window.setGifSelection(selectedFiles.map(urlToPath))
             dlgSettings.gifFolder = urlToPath(currentFolder)
         }
     }

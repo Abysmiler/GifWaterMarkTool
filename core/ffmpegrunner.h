@@ -3,6 +3,7 @@
 #include <QByteArray>
 #include <QObject>
 #include <QProcess>
+#include <QSize>
 #include <QString>
 #include <qqml.h>   // QML_ELEMENT / QML_NAMED_ELEMENT 等 QML 注册宏
 
@@ -94,6 +95,10 @@ public:
 
     // 探测当前 gifPath 总时长（毫秒），失败返回 -1（调用方应降级为帧数进度）
     Q_INVOKABLE qint64 totalDurationMs() const;
+
+    // 读取指定 GIF 的画布尺寸（解析文件头，无子进程开销）；失败返回 0×0。
+    // 批量导出时 QML 用它把水印位置按第一张的比例换算到各张 GIF。
+    Q_INVOKABLE QSize gifSize(const QString &gifPath) const;
 
     // 拼命令 + 启动 QProcess（异步）。输入缺失/ffmpeg 缺失时直接 emit finished(false)
     Q_INVOKABLE void exportGif();

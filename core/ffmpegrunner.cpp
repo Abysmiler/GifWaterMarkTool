@@ -75,6 +75,11 @@ qint64 FFmpegRunner::totalDurationMs() const
     return m_gifPath.isEmpty() ? -1 : gifprobe::durationMs(m_gifPath);
 }
 
+QSize FFmpegRunner::gifSize(const QString &gifPath) const
+{
+    return gifprobe::imageSize(gifPath);
+}
+
 QString FFmpegRunner::buildFilterComplex() const
 {
     // clamp 防非法滤镜表达式（透明度严格 [0,1]，缩放严格 >0），定点格式化禁科学计数法/本地化逗号

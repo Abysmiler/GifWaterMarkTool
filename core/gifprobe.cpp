@@ -2,6 +2,7 @@
 
 #include "paths.h"
 
+#include <QFile>
 #include <QProcess>
 #include <QRegularExpression>
 #include <QString>
@@ -32,6 +33,20 @@ qint64 durationMs(const QString &gifPath)
     const qint64 min = m.captured(2).toLongLong();
     const double s   = m.captured(3).toDouble();
     return qint64((h * 3600 + min * 60 + s) * 1000.0);
+}
+
+// GIF 头 6~9 字节是逻辑屏幕描述符：宽/高各占 2 字节，小端序。
+QSize imageSize(const QString &gifPath)
+{
+    QFile f(gifPath);
+    if (!f.open(QIODevice::ReadOnly))
+        return QSize(0, 0);
+    const QByteArray head = f.read(10);
+    if (head.size() < 10 || !head.startsWith("GIF"))
+        return QSize(0, 0);
+    const int w = quint8(head[6]) | quint8(head[7]) << 8;
+    const int h = quint8(head[8]) | quint8(head[9]) << 8;
+    return QSize(w, h);
 }
 
 } // namespace gifprobe

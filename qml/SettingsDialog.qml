@@ -12,13 +12,18 @@ Item {
     visible: false
     z: 100
 
-    property string appVersion: "v1.0.3"
+    property string appVersion: "v1.0.4"
     property bool rememberWatermark: false
     property bool deepCompress: true
     property bool rememberOutFolder: true
 
     // 更新日志（新到旧）。发版时在顶部补一条，与 appVersion 同步维护。
     property var changelog: [
+        { version: "v1.0.4", date: "2026-08-30", items: [
+            "文件槽新增右键菜单「打开文件夹」，直接打开文件所在目录",
+            "应用 logo 重设计：「帧 + 印」，点题给 GIF 盖水印，同步更新应用图标",
+            "导出成功反馈改为玉绿对勾章，不再使用应用图标",
+        ]},
         { version: "v1.0.3", date: "2026-08-29", items: [
             "GIF 支持多选批量导出：预览与水印设置基于第一张，位置按比例换算到各张尺寸",
             "导出失败统一弹结果面板：单张失败不再中断队列，支持一键重试失败项",

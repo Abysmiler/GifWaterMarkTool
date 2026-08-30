@@ -476,6 +476,10 @@ ApplicationWindow {
                     hint: qsTr("点击选择或拖入（可多选）")
                     onClicked: gifDialog.open()
                     onCleared: { window.gifPath = ""; window.gifPaths = []; window._previewPath = "" }
+                    onOpenFolderRequested: {
+                        if (!runner.openContainingFolder(window.gifPath))
+                            toast.show(qsTr("无法打开文件夹"), false, "")
+                    }
                 }
                 FileChip {
                     glyph: "OUT"
@@ -485,6 +489,10 @@ ApplicationWindow {
                     hint: qsTr("选择保存文件夹")
                     onClicked: outDialog.open()
                     onCleared: window.outPath = ""
+                    onOpenFolderRequested: {
+                        if (!runner.openContainingFolder(window.outPath))
+                            toast.show(qsTr("无法打开文件夹"), false, "")
+                    }
                 }
 
                 Item { Layout.fillWidth: true }
@@ -552,6 +560,10 @@ ApplicationWindow {
 
                 onUseTextWaterRequested: function(v) { window.useTextWater = v }
                 onWaterPathRequested: waterDialog.open()
+                onOpenWaterFolderRequested: {
+                    if (!runner.openContainingFolder(window.waterPath))
+                        toast.show(qsTr("无法打开文件夹"), false, "")
+                }
                 onTextContentEdited: function(v) { window.textContent = v }
                 onTextFontSizeEdited: function(v) { window.textFontSize = v }
                 onTextColorEdited: function(v) { window.textColor = v }

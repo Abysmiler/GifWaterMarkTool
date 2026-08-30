@@ -37,6 +37,7 @@ Flickable {
     // ---- 出参信号 ----
     signal useTextWaterRequested(bool v)
     signal waterPathRequested()
+    signal openWaterFolderRequested()
     signal textContentEdited(string v)
     signal textFontSizeEdited(int v)
     signal textColorEdited(string v)
@@ -135,6 +136,7 @@ Flickable {
                 hint: qsTr("选择透明 PNG")
                 clearable: false
                 onClicked: root.waterPathRequested()
+                onOpenFolderRequested: root.openWaterFolderRequested()
             }
 
             // —— 文字模式 ——

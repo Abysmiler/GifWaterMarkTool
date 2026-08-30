@@ -15,6 +15,7 @@ Rectangle {
     property real maxWidth: 300        // 条带内最大宽度（检视器用 Layout.fillWidth 时不受此限）
     signal clicked()
     signal cleared()
+    signal openFolderRequested()      // 右键菜单「打开文件夹」（打开文件所在目录，非选择对话框）
 
     readonly property bool active: value !== ""
     readonly property real _clearW: (active && clearable) ? 22 : 0
@@ -110,6 +111,44 @@ Rectangle {
         anchors.rightMargin: chip._clearW > 0 ? 30 : 0
         hoverEnabled: true
         cursorShape: Qt.PointingHandCursor
-        onClicked: chip.clicked()
+        acceptedButtons: Qt.LeftButton | Qt.RightButton
+        onClicked: function(mouse) {
+            if (mouse.button === Qt.RightButton) {
+                if (chip.active) chipMenu.popup()
+                return
+            }
+            chip.clicked()
+        }
+    }
+
+    // 右键菜单：打开文件所在文件夹（未选文件时不弹）
+    Menu {
+        id: chipMenu
+        width: 140
+        padding: 4
+        background: Rectangle {
+            radius: Theme.radiusSm
+            color: Theme.panel
+            border.width: 1
+            border.color: Theme.line
+        }
+        MenuItem {
+            id: openFolderItem
+            height: 30
+            text: qsTr("打开文件夹")
+            contentItem: Text {
+                text: openFolderItem.text
+                font.family: Theme.fontUI
+                font.pixelSize: 12
+                color: openFolderItem.hovered ? Theme.text : Theme.textDim
+                verticalAlignment: Text.AlignVCenter
+                leftPadding: 10
+            }
+            background: Rectangle {
+                radius: Theme.radiusXs
+                color: openFolderItem.hovered ? Theme.panelHover : "transparent"
+            }
+            onTriggered: chip.openFolderRequested()
+        }
     }
 }

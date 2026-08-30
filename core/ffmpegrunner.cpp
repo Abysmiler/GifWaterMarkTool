@@ -212,8 +212,10 @@ void FFmpegRunner::cancelExport()
 
 bool FFmpegRunner::openContainingFolder(const QString &path)
 {
+    // 传文件（含尚未导出的计划路径，文件还不存在）→ 打开父目录；
+    // 传已存在的目录 → 打开目录本身。absolutePath 对不存在的文件也返回父目录。
     const QFileInfo fi(path);
-    const QString dir = fi.exists() ? fi.absolutePath() : path;
+    const QString dir = fi.isDir() ? fi.absoluteFilePath() : fi.absolutePath();
     return QDesktopServices::openUrl(QUrl::fromLocalFile(dir));
 }
 

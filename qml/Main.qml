@@ -641,20 +641,33 @@ ApplicationWindow {
             }
         }
 
-        // ===== 盖章动画 =====
+        // ===== 盖章动画（导出成功：玉绿对勾描边章，斜盖）=====
         Item {
             id: stamp
-            width: 150; height: 150
+            width: 130; height: 130
             opacity: 0
+            rotation: -8
             z: 40
             x: window.m + (rootArea.width - window.m - (window.m + window.inspW + window.m)) / 2 - width / 2
             y: (window.m + window.stripH + window.m)
                + (rootArea.height - (window.m + window.stripH + window.m) - (window.m + window.statusH + window.m)) / 2
                - height / 2
             function press() { stampAnim.restart() }
-            AppMark {
+
+            Rectangle {
                 anchors.centerIn: parent
-                size: 132
+                width: 100; height: 100
+                radius: 50
+                color: Qt.rgba(Theme.jade.r, Theme.jade.g, Theme.jade.b, 0.10)
+                border.width: 3
+                border.color: Theme.jade
+                Text {
+                    anchors.centerIn: parent
+                    text: "\u2713"
+                    color: Theme.jade
+                    font.pixelSize: 58
+                    font.bold: true
+                }
             }
             SequentialAnimation {
                 id: stampAnim
@@ -665,7 +678,7 @@ ApplicationWindow {
                     NumberAnimation { target: stamp; property: "opacity"; to: 0.95; duration: 120 }
                 }
                 PauseAnimation { duration: 440 }
-                NumberAnimation { target: stamp; property: "opacity"; to: 0; duration: 320 }
+                NumberAnimation { target: stamp; property: opacity; to: 0; duration: 320 }
             }
         }
 

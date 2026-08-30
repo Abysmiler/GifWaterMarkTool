@@ -678,7 +678,7 @@ ApplicationWindow {
                     NumberAnimation { target: stamp; property: "opacity"; to: 0.95; duration: 120 }
                 }
                 PauseAnimation { duration: 440 }
-                NumberAnimation { target: stamp; property: opacity; to: 0; duration: 320 }
+                NumberAnimation { target: stamp; property: "opacity"; to: 0; duration: 320 }
             }
         }
 

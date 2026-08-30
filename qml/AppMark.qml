@@ -1,8 +1,8 @@
 import QtQuick
 import GifWaterMarkTool
 
-// 应用图标（矢量版）：朱砂圆角底 + 两枚半透明白色方块对角叠加，重叠处更亮。
-// 与 resources/appicon.png 一致，供界面内各处复用（字标、空态、盖章、Toast）。
+// 应用图标（矢量版）：朱砂圆角底 + 白描边「帧」+ 右下一枚实心小章，
+// 点题「给 GIF 帧盖水印」。与 resources/appicon.png 同构，供界面内各处复用。
 Item {
     id: mark
     property real size: 32
@@ -17,18 +17,25 @@ Item {
         color: Theme.seal
     }
 
-    // 两枚半透明白块，对角错位；重叠区域经 alpha 叠加自然更亮
-    Repeater {
-        model: [0.18, 0.40]
-        delegate: Rectangle {
-            required property real modelData
-            width: mark.size * 0.42
-            height: width
-            radius: width * 0.26
-            x: mark.size * modelData
-            y: mark.size * modelData
-            color: "#ffffff"
-            opacity: 0.5
-        }
+    // 帧：白描边圆角框
+    Rectangle {
+        x: mark.size * 0.266
+        y: mark.size * 0.266
+        width: mark.size * 0.469
+        height: width
+        radius: width * 0.233
+        color: "transparent"
+        border.width: Math.max(1, mark.size * 0.039)
+        border.color: "#ffffff"
+    }
+
+    // 印：右下实心小章（水印意象）
+    Rectangle {
+        x: mark.size * 0.594
+        y: mark.size * 0.594
+        width: mark.size * 0.1875
+        height: width
+        radius: width * 0.25
+        color: "#ffffff"
     }
 }

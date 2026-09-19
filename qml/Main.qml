@@ -498,6 +498,11 @@ ApplicationWindow {
                 Item { Layout.fillWidth: true }
 
                 AppButton {
+                    text: qsTr("重命名")
+                    kind: "ghost"
+                    onClicked: renameDlg.open()
+                }
+                AppButton {
                     text: qsTr("设置")
                     kind: "ghost"
                     onClicked: settingsDlg.open()
@@ -703,6 +708,11 @@ ApplicationWindow {
             onRememberWatermarkToggled: function(v) { wmSettings.memoryEnabled = v }
             onDeepCompressToggled: function(v) { window.setDeepOptimize(v) }
             onRememberOutFolderToggled: function(v) { prefs.rememberOutFolder = v }
+        }
+
+        // ===== 批量重命名弹窗 =====
+        RenameDialog {
+            id: renameDlg
         }
 
         // ===== 导出结果面板（批量存在失败时弹出；列出失败原因并支持只重试失败项）=====

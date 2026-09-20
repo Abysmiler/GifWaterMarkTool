@@ -94,6 +94,7 @@ Item {
         property bool gifOnly: true
         property bool recursive: false
         property string customPatternsJson: "[]"
+        property string lastFolder: ""
     }
     Component.onCompleted: {
         try { customPatterns = JSON.parse(rnSettings.customPatternsJson) } catch (e) { customPatterns = [] }
@@ -102,7 +103,9 @@ Item {
     FolderDialog {
         id: addFolderDialog
         title: qsTr("添加要重命名的文件夹")
+        currentFolder: rnSettings.lastFolder !== "" ? "file:///" + rnSettings.lastFolder : ""
         onAccepted: {
+            rnSettings.lastFolder = urlToPath(currentFolder)
             var p = urlToPath(selectedFolder)
             if (folders.indexOf(p) === -1) {
                 folders.push(p)
@@ -358,6 +361,57 @@ Item {
                         font.family: Theme.fontUI
                         font.pixelSize: 11; font.bold: true
                         topPadding: 6
+                    }
+                    Text {
+                        Layout.fillWidth: true
+                        text: qsTr("填写正则表达式：文件名（不含扩展名）中匹配到的部分会被删除，下方预览实时可见效果。点击示例直接填入：")
+                        color: Theme.textFaint
+                        font.family: Theme.fontUI
+                        font.pixelSize: 10
+                        wrapMode: Text.WordWrap
+                    }
+                    RowLayout {
+                        spacing: 6
+                        Repeater {
+                            // 快捷示例：点击追加为一条自定义规则（tooltip 说明各自用途）
+                            model: [
+                                { re: "-高清版$", tip: qsTr("删除名字结尾的「-高清版」这类标记") },
+                                { re: "\\(.*?\\)", tip: qsTr("连内容一起删除（半角）括号") },
+                                { re: "^\\d+_", tip: qsTr("删除开头「数字_」前缀") },
+                            ]
+                            Rectangle {
+                                id: exChip
+                                required property var modelData
+                                radius: Theme.radiusXs
+                                height: 24
+                                width: exText.implicitWidth + 16
+                                color: exMa.containsMouse ? Theme.panelHover : Theme.panelHi
+                                border.width: 1; border.color: Theme.line
+                                Text {
+                                    id: exText
+                                    anchors.centerIn: parent
+                                    text: exChip.modelData.re
+                                    color: Theme.textDim
+                                    font.family: Theme.fontMono
+                                    font.pixelSize: 10
+                                }
+                                MouseArea {
+                                    id: exMa
+                                    anchors.fill: parent
+                                    hoverEnabled: true
+                                    cursorShape: Qt.PointingHandCursor
+                                    ToolTip.visible: containsMouse
+                                    ToolTip.delay: 300
+                                    ToolTip.text: exChip.modelData.tip
+                                    onClicked: {
+                                        dlg.customPatterns.push(exChip.modelData.re)
+                                        dlg.customPatterns = dlg.customPatterns.slice()
+                                        dlg.savePatterns()
+                                        dlg.repreview()
+                                    }
+                                }
+                            }
+                        }
                     }
                     Repeater {
                         model: dlg.customPatterns

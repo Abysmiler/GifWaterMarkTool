@@ -392,64 +392,71 @@ Item {
                                 height: Math.max(sheet.height, proofCol.implicitHeight)
                                 spacing: 0
 
-                                // 空态 A：没有文件夹 —— 邀请行动
-                                ColumnLayout {
+                                // 空态 A：没有文件夹 —— 邀请行动（Item+anchors.centerIn，水平垂直都居中）
+                                Item {
                                     Layout.fillWidth: true
+                                    Layout.fillHeight: true
                                     visible: dlg.folders.length === 0
-                                    spacing: 10
-                                    Item { Layout.fillHeight: true; Layout.minimumHeight: 20 }
-                                    Text {
-                                        Layout.alignment: Qt.AlignHCenter
-                                        text: qsTr("把要整理的文件夹加进来")
-                                        color: Theme.textDim
-                                        font.family: Theme.fontUI
-                                        font.pixelSize: 13
+
+                                    Column {
+                                        anchors.centerIn: parent
+                                        spacing: 10
+                                        Text {
+                                            anchors.horizontalCenter: parent.horizontalCenter
+                                            text: qsTr("把要整理的文件夹加进来")
+                                            color: Theme.textDim
+                                            font.family: Theme.fontUI
+                                            font.pixelSize: 13
+                                        }
+                                        Text {
+                                            anchors.horizontalCenter: parent.horizontalCenter
+                                            text: qsTr("按规则清掉文件名里的时间戳、括号和副本后缀")
+                                            color: Theme.textFaint
+                                            font.family: Theme.fontUI
+                                            font.pixelSize: 11
+                                        }
+                                        AppButton {
+                                            anchors.horizontalCenter: parent.horizontalCenter
+                                            text: qsTr("+ 添加文件夹")
+                                            kind: "primary"
+                                            implicitHeight: 36
+                                            leftPadding: 24; rightPadding: 24
+                                            onClicked: addFolderDialog.open()
+                                        }
                                     }
-                                    Text {
-                                        Layout.alignment: Qt.AlignHCenter
-                                        text: qsTr("按规则清掉文件名里的时间戳、括号和副本后缀")
-                                        color: Theme.textFaint
-                                        font.family: Theme.fontUI
-                                        font.pixelSize: 11
-                                    }
-                                    AppButton {
-                                        Layout.alignment: Qt.AlignHCenter
-                                        Layout.topMargin: 6
-                                        text: qsTr("+ 添加文件夹")
-                                        kind: "primary"
-                                        implicitHeight: 36
-                                        leftPadding: 24; rightPadding: 24
-                                        onClicked: addFolderDialog.open()
-                                    }
-                                    Item { Layout.fillHeight: true; Layout.minimumHeight: 20 }
                                 }
 
                                 // 空态 B：有文件夹但全部已符合 —— 收工状态
-                                ColumnLayout {
+                                Item {
                                     Layout.fillWidth: true
+                                    Layout.fillHeight: true
                                     visible: dlg.folders.length > 0 && dlg.items.length === dlg.changedItems.length
-                                    spacing: 6
-                                    Item { Layout.fillHeight: true; Layout.minimumHeight: 20 }
+
                                     Text {
-                                        Layout.alignment: Qt.AlignHCenter
+                                        anchors.centerIn: parent
                                         text: qsTr("✓ 所有文件的名字都已是整理后的样子")
                                         color: Theme.jade
                                         font.family: Theme.fontUI
                                         font.pixelSize: 13
                                     }
-                                    Item { Layout.fillHeight: true; Layout.minimumHeight: 20 }
                                 }
 
                                 // 空态 C：有文件夹但没有符合条件（如仅 GIF 开着但全是 png）
-                                Text {
-                                    visible: dlg.folders.length > 0 && dlg.items.length === 0
+                                Item {
                                     Layout.fillWidth: true
-                                    text: qsTr("没有符合条件的文件（看看右侧「仅 GIF」是否该关掉）")
-                                    color: Theme.textFaint
-                                    font.family: Theme.fontUI
-                                    font.pixelSize: 11
-                                    horizontalAlignment: Text.AlignHCenter
-                                    topPadding: 24
+                                    Layout.fillHeight: true
+                                    visible: dlg.folders.length > 0 && dlg.items.length === 0
+
+                                    Text {
+                                        anchors.centerIn: parent
+                                        width: parent.width - 32
+                                        text: qsTr("没有符合条件的文件（看看右侧「仅 GIF」是否该关掉）")
+                                        color: Theme.textFaint
+                                        font.family: Theme.fontUI
+                                        font.pixelSize: 11
+                                        horizontalAlignment: Text.AlignHCenter
+                                        wrapMode: Text.WordWrap
+                                    }
                                 }
 
                                 // 变换行：旧名（暗） → 新名（玉绿）

@@ -282,29 +282,31 @@ Item {
                 }
             }
 
-            // ===== 主区：校对单（左）+ 规则栏（右，发丝线分隔）=====
-            RowLayout {
+            // ===== 主区：校对单（左）+ 规则栏（右）—— anchors 显式几何，不依赖 Layout 隐式分配 =====
+            Item {
                 Layout.fillWidth: true
                 Layout.fillHeight: true
                 Layout.leftMargin: Theme.pad
                 Layout.rightMargin: Theme.pad
                 Layout.topMargin: 4
-                spacing: 0
 
                 // —— 校对单 ——
                 Item {
-                    Layout.fillWidth: true
-                    Layout.fillHeight: true
+                    id: proofArea
+                    anchors.left: parent.left
+                    anchors.right: rulesCol.left
+                    anchors.rightMargin: Theme.pad
+                    anchors.top: parent.top
+                    anchors.bottom: parent.bottom
 
-                    // 朱砂批注线：贯通读数与清单（签名元素，呼应 Section 眉标与印章身份）
-                    // （anchor 只能连 parent/sibling，这里用几何绑定跟随 ColumnLayout 布置）
+                    // 朱砂批注线：通高贴左缘（签名元素，呼应 Section 眉标与印章身份）
                     Rectangle {
-                        x: 0
+                        anchors.left: parent.left
+                        anchors.top: parent.top
+                        anchors.bottom: parent.bottom
                         width: 3
                         radius: 1.5
                         color: Theme.seal
-                        y: statRow.y
-                        height: (sheet.y + sheet.height) - statRow.y
                     }
 
                     ColumnLayout {
@@ -512,17 +514,21 @@ Item {
 
                 // —— 发丝分隔线 ——
                 Rectangle {
-                    Layout.preferredWidth: 1
-                    Layout.fillHeight: true
-                    Layout.leftMargin: Theme.pad
+                    anchors.right: rulesCol.left
+                    anchors.rightMargin: Theme.pad
+                    anchors.top: parent.top
+                    anchors.bottom: parent.bottom
+                    width: 1
                     color: Theme.lineSoft
                 }
 
                 // —— 规则栏（无框，安静的一列）——
                 ColumnLayout {
-                    Layout.preferredWidth: 224
-                    Layout.fillHeight: true
-                    Layout.leftMargin: Theme.pad
+                    id: rulesCol
+                    anchors.right: parent.right
+                    anchors.top: parent.top
+                    anchors.bottom: parent.bottom
+                    width: 224
                     spacing: 4
 
                     Flickable {

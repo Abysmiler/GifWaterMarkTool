@@ -12,13 +12,17 @@ Item {
     visible: false
     z: 100
 
-    property string appVersion: "v1.0.4"
+    property string appVersion: "v1.0.5"
     property bool rememberWatermark: false
     property bool deepCompress: true
     property bool rememberOutFolder: true
 
     // 更新日志（新到旧）。发版时在顶部补一条，与 appVersion 同步维护。
     property var changelog: [
+        { version: "v1.0.5", date: "2026-09-20", items: [
+            "新增批量重命名：清掉文件名里的时间戳、括号与副本后缀，支持自定义正则",
+            "多文件夹累加处理，改名前逐条预览，失败自动保持原名并给出原因",
+        ]},
         { version: "v1.0.4", date: "2026-08-30", items: [
             "文件槽新增右键菜单「打开文件夹」，直接打开文件所在目录",
             "应用 logo 重设计：「帧 + 印」，点题给 GIF 盖水印，同步更新应用图标",

@@ -8,6 +8,7 @@ import GifWaterMarkTool
 
 // 批量重命名弹窗：多文件夹累加选择 + 规则开关（去时间戳/括号/副本后缀）+ 自定义正则，
 // 实时预览「原名 → 新名」，执行时单文件原子改名（失败自动保持原名并提示）。
+// 布局：顶部文件夹横排（全宽换行）——右侧规则侧栏——左侧预览主区。
 Item {
     id: dlg
     anchors.fill: parent
@@ -68,11 +69,16 @@ Item {
             }
         }
         items = items.slice()   // 触发列表刷新
-        var ok = items.filter(function(it) { return it.changed && !it.error }).length
         var changedCount = items.filter(function(it) { return it.changed }).length
         statusText = fails.length > 0
             ? qsTr("成功 %1 · 失败 %2（失败文件已保持原名）").arg(changedCount - fails.length).arg(fails.length)
-            : qsTr("已重命名 %1 个文件").arg(ok)
+            : qsTr("已重命名 %1 个文件").arg(changedCount)
+    }
+
+    function removeFolder(i) {
+        folders.splice(i, 1)
+        folders = folders.slice()
+        repreview()
     }
 
     Renamer {
@@ -123,8 +129,8 @@ Item {
 
     Item {
         id: panel
-        width: Math.min(720, parent.width - 48)
-        height: Math.min(540, parent.height - 64)
+        width: Math.min(780, parent.width - 48)
+        height: Math.min(560, parent.height - 64)
         opacity: dlg.visible ? 1.0 : 0.0
         scale: dlg.visible ? 1.0 : 0.97
         Behavior on opacity { NumberAnimation { duration: Theme.slide } }
@@ -189,375 +195,379 @@ Item {
                 Rectangle { anchors.bottom: parent.bottom; width: parent.width; height: 1; color: Theme.lineSoft }
             }
 
-            // ===== 上部：文件夹 + 规则 =====
-            RowLayout {
+            // ===== 文件夹横排（全宽，自动换行）=====
+            Item {
                 Layout.fillWidth: true
                 Layout.leftMargin: Theme.pad
                 Layout.rightMargin: Theme.pad
                 Layout.topMargin: 10
-                spacing: Theme.gap
+                implicitHeight: folderFlow.implicitHeight + addFolderBtn.height + 14
 
-                // —— 文件夹列 ——
                 ColumnLayout {
-                    Layout.preferredWidth: 230
-                    Layout.fillHeight: true
-                    spacing: 6
+                    id: folderArea
+                    anchors.fill: parent
+                    spacing: 8
+
+                    Flow {
+                        id: folderFlow
+                        Layout.fillWidth: true
+                        spacing: 6
+
+                        Repeater {
+                            model: dlg.folders
+                            Rectangle {
+                                id: folderChip
+                                required property string modelData
+                                required property int index
+                                width: chipText.implicitWidth + 44
+                                height: 30
+                                radius: Theme.radiusSm
+                                color: Theme.panelHi
+                                border.width: 1; border.color: Theme.line
+
+                                Text {
+                                    id: chipText
+                                    anchors.left: parent.left
+                                    anchors.leftMargin: 10
+                                    anchors.right: rmBtn.left
+                                    anchors.rightMargin: 4
+                                    anchors.verticalCenter: parent.verticalCenter
+                                    text: folderChip.modelData.replace(/^.*[\\/]/, "")
+                                    color: Theme.text
+                                    font.family: Theme.fontMono
+                                    font.pixelSize: 11
+                                }
+                                MouseArea {
+                                    id: chipHover
+                                    anchors.fill: parent
+                                    hoverEnabled: true
+                                }
+                                Rectangle {
+                                    id: rmBtn
+                                    width: 20; height: 20; radius: 10
+                                    anchors.right: parent.right
+                                    anchors.rightMargin: 6
+                                    anchors.verticalCenter: parent.verticalCenter
+                                    color: rmMa.containsMouse ? Theme.line : "transparent"
+                                    Text {
+                                        anchors.centerIn: parent
+                                        text: "×"; font.pixelSize: 12
+                                        color: Theme.textDim
+                                    }
+                                    MouseArea {
+                                        id: rmMa
+                                        anchors.fill: parent
+                                        hoverEnabled: true
+                                        cursorShape: Qt.PointingHandCursor
+                                        onClicked: dlg.removeFolder(folderChip.index)
+                                    }
+                                }
+                                ToolTip.visible: chipHover.containsMouse
+                                ToolTip.delay: 400
+                                ToolTip.text: folderChip.modelData
+                            }
+                        }
+
+                        // 添加按钮跟在最后一个 chip 后面
+                        AppButton {
+                            id: addFolderBtn
+                            text: qsTr("+ 添加文件夹")
+                            kind: "ghost"
+                            implicitHeight: 30
+                            onClicked: addFolderDialog.open()
+                        }
+                    }
 
                     Text {
-                        text: qsTr("文件夹")
-                        color: Theme.textDim
-                        font.family: Theme.fontUI
-                        font.pixelSize: 11; font.bold: true
-                    }
-                    Flickable {
-                        id: folderList
+                        visible: dlg.folders.length === 0
                         Layout.fillWidth: true
-                        Layout.fillHeight: true
+                        text: qsTr("还没有选择文件夹，点击「+ 添加文件夹」开始（可添加多个）")
+                        color: Theme.textFaint
+                        font.family: Theme.fontUI
+                        font.pixelSize: 11
+                    }
+                }
+            }
+
+            // ===== 主区：预览（左大）+ 规则侧栏（右窄）=====
+            RowLayout {
+                Layout.fillWidth: true
+                Layout.fillHeight: true
+                Layout.leftMargin: Theme.pad
+                Layout.rightMargin: Theme.pad
+                Layout.topMargin: 4
+                spacing: Theme.gap
+
+                // —— 预览主区 ——
+                Rectangle {
+                    Layout.fillWidth: true
+                    Layout.fillHeight: true
+                    radius: Theme.radiusSm
+                    color: Theme.panelHi
+                    border.width: 1; border.color: Theme.lineSoft
+
+                    Flickable {
+                        id: previewList
+                        anchors.fill: parent
+                        anchors.margins: 6
                         contentWidth: width
-                        contentHeight: folderCol.implicitHeight
+                        contentHeight: previewCol.implicitHeight
                         clip: true
                         boundsBehavior: Flickable.StopAtBounds
                         ScrollBar.vertical: ScrollBar { policy: ScrollBar.AsNeeded }
 
                         ColumnLayout {
-                            id: folderCol
-                            width: folderList.width
-                            spacing: 4
+                            id: previewCol
+                            width: previewList.width
+                            spacing: 2
+
+                            Text {
+                                visible: dlg.folders.length > 0 && dlg.items.length === 0
+                                Layout.fillWidth: true
+                                text: qsTr("没有符合条件的文件")
+                                color: Theme.textFaint
+                                font.family: Theme.fontUI
+                                font.pixelSize: 11
+                                horizontalAlignment: Text.AlignHCenter
+                                topPadding: 24
+                            }
 
                             Repeater {
-                                model: dlg.folders
-                                Rectangle {
-                                    required property string modelData
-                                    required property int index
-                                    Layout.fillWidth: true
-                                    height: 32
-                                    radius: Theme.radiusSm
-                                    color: Theme.panelHi
-                                    border.width: 1; border.color: Theme.line
+                                model: dlg.items
 
-                                    Text {
-                                        anchors.left: parent.left
-                                        anchors.leftMargin: 10
-                                        anchors.right: rmBtn.left
-                                        anchors.rightMargin: 6
-                                        anchors.verticalCenter: parent.verticalCenter
-                                        text: modelData.replace(/^.*[\\/]/, "")
-                                        color: Theme.text
-                                        font.family: Theme.fontMono
-                                        font.pixelSize: 11
-                                        elide: Text.ElideMiddle
-                                        ToolTip.visible: folderChipMa.containsMouse
-                                        ToolTip.text: modelData
-                                        ToolTip.delay: 400
-                                    }
-                                    MouseArea {
-                                        id: folderChipMa
-                                        anchors.fill: parent
-                                        hoverEnabled: true
-                                        enabled: false
-                                    }
-                                    Rectangle {
-                                        id: rmBtn
-                                        width: 24; height: 24; radius: 12
-                                        anchors.right: parent.right
-                                        anchors.rightMargin: 5
-                                        anchors.verticalCenter: parent.verticalCenter
-                                        color: rmMa.containsMouse ? Theme.line : "transparent"
+                                ColumnLayout {
+                                    id: previewRow
+                                    required property var modelData
+                                    Layout.fillWidth: true
+                                    spacing: 0
+
+                                    RowLayout {
+                                        Layout.fillWidth: true
+                                        spacing: 8
                                         Text {
+                                            Layout.fillWidth: true
+                                            text: previewRow.modelData.oldName
+                                            color: previewRow.modelData.changed ? Theme.textDim : Theme.textFaint
+                                            font.family: Theme.fontMono
+                                            font.pixelSize: 11
+                                            elide: Text.ElideMiddle
+                                        }
+                                        Text {
+                                            text: "→"
+                                            visible: previewRow.modelData.changed
+                                            color: Theme.textFaint
+                                            font.family: Theme.fontMono
+                                            font.pixelSize: 11
+                                        }
+                                        Text {
+                                            Layout.fillWidth: true
+                                            visible: previewRow.modelData.changed
+                                            text: previewRow.modelData.newName
+                                            color: previewRow.modelData.error ? Theme.seal : Theme.jade
+                                            font.family: Theme.fontMono
+                                            font.pixelSize: 11
+                                            elide: Text.ElideMiddle
+                                        }
+                                    }
+                                    Text {
+                                        visible: previewRow.modelData.error !== undefined && previewRow.modelData.error
+                                        Layout.fillWidth: true
+                                        Layout.leftMargin: 8
+                                        text: previewRow.modelData.error || ""
+                                        color: Theme.seal
+                                        font.family: Theme.fontUI
+                                        font.pixelSize: 10
+                                        wrapMode: Text.WordWrap
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+
+                // —— 规则侧栏（窄列，可滚动）——
+                Rectangle {
+                    Layout.preferredWidth: 236
+                    Layout.fillHeight: true
+                    radius: Theme.radiusSm
+                    color: Theme.panelHi
+                    border.width: 1; border.color: Theme.lineSoft
+
+                    Flickable {
+                        id: ruleList
+                        anchors.fill: parent
+                        anchors.margins: 8
+                        contentWidth: width
+                        contentHeight: ruleCol.implicitHeight
+                        clip: true
+                        boundsBehavior: Flickable.StopAtBounds
+                        ScrollBar.vertical: ScrollBar { policy: ScrollBar.AsNeeded }
+
+                        ColumnLayout {
+                            id: ruleCol
+                            width: ruleList.width
+                            spacing: 6
+
+                            Text {
+                                text: qsTr("规则")
+                                color: Theme.text
+                                font.family: Theme.fontUI
+                                font.pixelSize: 12; font.bold: true
+                            }
+
+                            SwitchRow {
+                                Layout.fillWidth: true
+                                text: qsTr("去时间戳段")
+                                caption: qsTr("2026-06-26-20-07-33 与 14 位纯数字")
+                                checked: rnSettings.stripTimestamp
+                                onToggled: function(v) { rnSettings.stripTimestamp = v; dlg.repreview() }
+                            }
+                            SwitchRow {
+                                Layout.fillWidth: true
+                                text: qsTr("去括号")
+                                caption: qsTr("只删括号本身，保留内容")
+                                checked: rnSettings.stripBrackets
+                                onToggled: function(v) { rnSettings.stripBrackets = v; dlg.repreview() }
+                            }
+                            SwitchRow {
+                                Layout.fillWidth: true
+                                text: qsTr("去副本后缀")
+                                caption: qsTr("段尾「空格+数字」，如「哭 1」")
+                                checked: rnSettings.stripCopySuffix
+                                onToggled: function(v) { rnSettings.stripCopySuffix = v; dlg.repreview() }
+                            }
+                            SwitchRow {
+                                Layout.fillWidth: true
+                                text: qsTr("仅 GIF")
+                                checked: rnSettings.gifOnly
+                                onToggled: function(v) { rnSettings.gifOnly = v; dlg.repreview() }
+                            }
+                            SwitchRow {
+                                Layout.fillWidth: true
+                                text: qsTr("含子文件夹")
+                                checked: rnSettings.recursive
+                                onToggled: function(v) { rnSettings.recursive = v; dlg.repreview() }
+                            }
+
+                            Rectangle { Layout.fillWidth: true; height: 1; color: Theme.lineSoft }
+
+                            Text {
+                                text: qsTr("自定义去除规则")
+                                color: Theme.text
+                                font.family: Theme.fontUI
+                                font.pixelSize: 12; font.bold: true
+                            }
+                            Text {
+                                Layout.fillWidth: true
+                                text: qsTr("正则表达式，文件名（不含扩展名）中匹配到的部分会被删除，预览实时可见。点击示例填入：")
+                                color: Theme.textFaint
+                                font.family: Theme.fontUI
+                                font.pixelSize: 10
+                                wrapMode: Text.WordWrap
+                            }
+                            Flow {
+                                Layout.fillWidth: true
+                                spacing: 6
+                                Repeater {
+                                    // 快捷示例：点击追加为一条自定义规则（hover 有用途说明）
+                                    model: [
+                                        { re: "-高清版$", tip: qsTr("删除名字结尾的「-高清版」这类标记") },
+                                        { re: "\\(.*?\\)", tip: qsTr("连内容一起删除（半角）括号") },
+                                        { re: "^\\d+_", tip: qsTr("删除开头「数字_」前缀") },
+                                    ]
+                                    Rectangle {
+                                        id: exChip
+                                        required property var modelData
+                                        radius: Theme.radiusXs
+                                        height: 24
+                                        width: exText.implicitWidth + 16
+                                        color: exMa.containsMouse ? Theme.panelHover : Theme.panel
+                                        border.width: 1; border.color: Theme.line
+                                        Text {
+                                            id: exText
                                             anchors.centerIn: parent
-                                            text: "×"; font.pixelSize: 13
+                                            text: exChip.modelData.re
                                             color: Theme.textDim
+                                            font.family: Theme.fontMono
+                                            font.pixelSize: 10
                                         }
                                         MouseArea {
-                                            id: rmMa
+                                            id: exMa
                                             anchors.fill: parent
                                             hoverEnabled: true
                                             cursorShape: Qt.PointingHandCursor
                                             onClicked: {
-                                                dlg.folders.splice(index, 1)
-                                                dlg.folders = dlg.folders.slice()
+                                                dlg.customPatterns.push(exChip.modelData.re)
+                                                dlg.customPatterns = dlg.customPatterns.slice()
+                                                dlg.savePatterns()
+                                                dlg.repreview()
+                                            }
+                                        }
+                                        ToolTip.visible: exMa.containsMouse
+                                        ToolTip.delay: 300
+                                        ToolTip.text: exChip.modelData.tip
+                                    }
+                                }
+                            }
+
+                            Repeater {
+                                model: dlg.customPatterns
+                                RowLayout {
+                                    id: ptnRow
+                                    required property string modelData
+                                    required property int index
+                                    Layout.fillWidth: true
+                                    spacing: 6
+                                    TextField {
+                                        id: ptnField
+                                        Layout.fillWidth: true
+                                        implicitHeight: 30
+                                        text: ptnRow.modelData
+                                        font.family: Theme.fontMono
+                                        font.pixelSize: 11
+                                        color: renamer.isPatternValid(text) ? Theme.text : Theme.seal
+                                        background: Rectangle {
+                                            radius: Theme.radiusSm
+                                            color: Theme.panel
+                                            border.width: 1
+                                            border.color: renamer.isPatternValid(ptnField.text) ? Theme.line : Theme.seal
+                                        }
+                                        onTextEdited: {
+                                            dlg.customPatterns[ptnRow.index] = text
+                                            dlg.savePatterns()
+                                            dlg.repreview()
+                                        }
+                                    }
+                                    Rectangle {
+                                        width: 26; height: 26; radius: 13
+                                        color: ptnMa.containsMouse ? Theme.line : "transparent"
+                                        Text { anchors.centerIn: parent; text: "×"; font.pixelSize: 13; color: Theme.textDim }
+                                        MouseArea {
+                                            id: ptnMa
+                                            anchors.fill: parent
+                                            hoverEnabled: true
+                                            cursorShape: Qt.PointingHandCursor
+                                            onClicked: {
+                                                dlg.customPatterns.splice(ptnRow.index, 1)
+                                                dlg.customPatterns = dlg.customPatterns.slice()
+                                                dlg.savePatterns()
                                                 dlg.repreview()
                                             }
                                         }
                                     }
                                 }
                             }
-
-                            // 空态提示
-                            Text {
-                                visible: dlg.folders.length === 0
-                                Layout.fillWidth: true
-                                text: qsTr("还没有选择文件夹\n点击下方按钮添加")
-                                color: Theme.textFaint
-                                font.family: Theme.fontUI
-                                font.pixelSize: 11
-                                horizontalAlignment: Text.AlignHCenter
-                                topPadding: 24; bottomPadding: 24
-                            }
-                        }
-                    }
-                    AppButton {
-                        Layout.fillWidth: true
-                        text: qsTr("+ 添加文件夹")
-                        kind: "ghost"
-                        implicitHeight: 32
-                        onClicked: addFolderDialog.open()
-                    }
-                }
-
-                // —— 规则列 ——
-                ColumnLayout {
-                    Layout.fillWidth: true
-                    Layout.fillHeight: true
-                    spacing: 6
-
-                    Text {
-                        text: qsTr("规则")
-                        color: Theme.textDim
-                        font.family: Theme.fontUI
-                        font.pixelSize: 11; font.bold: true
-                    }
-                    GridLayout {
-                        Layout.fillWidth: true
-                        columns: 2
-                        columnSpacing: Theme.gap
-                        rowSpacing: 2
-
-                        SwitchRow {
-                            Layout.fillWidth: true
-                            text: qsTr("去时间戳段")
-                            checked: rnSettings.stripTimestamp
-                            onToggled: function(v) { rnSettings.stripTimestamp = v; dlg.repreview() }
-                        }
-                        SwitchRow {
-                            Layout.fillWidth: true
-                            text: qsTr("仅 GIF")
-                            checked: rnSettings.gifOnly
-                            onToggled: function(v) { rnSettings.gifOnly = v; dlg.repreview() }
-                        }
-                        SwitchRow {
-                            Layout.fillWidth: true
-                            text: qsTr("去括号")
-                            checked: rnSettings.stripBrackets
-                            onToggled: function(v) { rnSettings.stripBrackets = v; dlg.repreview() }
-                        }
-                        SwitchRow {
-                            Layout.fillWidth: true
-                            text: qsTr("含子文件夹")
-                            checked: rnSettings.recursive
-                            onToggled: function(v) { rnSettings.recursive = v; dlg.repreview() }
-                        }
-                        SwitchRow {
-                            Layout.fillWidth: true
-                            text: qsTr("去副本后缀")
-                            caption: qsTr("段尾 \"空格+数字\"，如 \"哭 1\"")
-                            checked: rnSettings.stripCopySuffix
-                            onToggled: function(v) { rnSettings.stripCopySuffix = v; dlg.repreview() }
-                        }
-                    }
-
-                    Text {
-                        text: qsTr("自定义去除规则（正则，匹配即删）")
-                        color: Theme.textDim
-                        font.family: Theme.fontUI
-                        font.pixelSize: 11; font.bold: true
-                        topPadding: 6
-                    }
-                    Text {
-                        Layout.fillWidth: true
-                        text: qsTr("填写正则表达式：文件名（不含扩展名）中匹配到的部分会被删除，下方预览实时可见效果。点击示例直接填入：")
-                        color: Theme.textFaint
-                        font.family: Theme.fontUI
-                        font.pixelSize: 10
-                        wrapMode: Text.WordWrap
-                    }
-                    RowLayout {
-                        spacing: 6
-                        Repeater {
-                            // 快捷示例：点击追加为一条自定义规则（tooltip 说明各自用途）
-                            model: [
-                                { re: "-高清版$", tip: qsTr("删除名字结尾的「-高清版」这类标记") },
-                                { re: "\\(.*?\\)", tip: qsTr("连内容一起删除（半角）括号") },
-                                { re: "^\\d+_", tip: qsTr("删除开头「数字_」前缀") },
-                            ]
-                            Rectangle {
-                                id: exChip
-                                required property var modelData
-                                radius: Theme.radiusXs
-                                height: 24
-                                width: exText.implicitWidth + 16
-                                color: exMa.containsMouse ? Theme.panelHover : Theme.panelHi
-                                border.width: 1; border.color: Theme.line
-                                Text {
-                                    id: exText
-                                    anchors.centerIn: parent
-                                    text: exChip.modelData.re
-                                    color: Theme.textDim
-                                    font.family: Theme.fontMono
-                                    font.pixelSize: 10
-                                }
-                                MouseArea {
-                                    id: exMa
-                                    anchors.fill: parent
-                                    hoverEnabled: true
-                                    cursorShape: Qt.PointingHandCursor
-                                    ToolTip.visible: containsMouse
-                                    ToolTip.delay: 300
-                                    ToolTip.text: exChip.modelData.tip
-                                    onClicked: {
-                                        dlg.customPatterns.push(exChip.modelData.re)
-                                        dlg.customPatterns = dlg.customPatterns.slice()
-                                        dlg.savePatterns()
-                                        dlg.repreview()
-                                    }
+                            AppButton {
+                                text: qsTr("+ 添加规则")
+                                kind: "ghost"
+                                implicitHeight: 28
+                                leftPadding: 14; rightPadding: 14
+                                onClicked: {
+                                    dlg.customPatterns.push("")
+                                    dlg.customPatterns = dlg.customPatterns.slice()
                                 }
                             }
-                        }
-                    }
-                    Repeater {
-                        model: dlg.customPatterns
-                        RowLayout {
-                            required property string modelData
-                            required property int index
-                            Layout.fillWidth: true
-                            spacing: 6
-                            TextField {
-                                Layout.fillWidth: true
-                                implicitHeight: 30
-                                text: modelData
-                                font.family: Theme.fontMono
-                                font.pixelSize: 11
-                                color: renamer.isPatternValid(text) ? Theme.text : Theme.seal
-                                background: Rectangle {
-                                    radius: Theme.radiusSm
-                                    color: Theme.panelHi
-                                    border.width: 1
-                                    border.color: renamer.isPatternValid(text) ? Theme.line : Theme.seal
-                                }
-                                onTextEdited: {
-                                    dlg.customPatterns[index] = text
-                                    dlg.savePatterns()
-                                    dlg.repreview()
-                                }
-                            }
-                            Rectangle {
-                                width: 26; height: 26; radius: 13
-                                color: ptnMa.containsMouse ? Theme.line : "transparent"
-                                Text { anchors.centerIn: parent; text: "×"; font.pixelSize: 13; color: Theme.textDim }
-                                MouseArea {
-                                    id: ptnMa
-                                    anchors.fill: parent
-                                    hoverEnabled: true
-                                    cursorShape: Qt.PointingHandCursor
-                                    onClicked: {
-                                        dlg.customPatterns.splice(index, 1)
-                                        dlg.customPatterns = dlg.customPatterns.slice()
-                                        dlg.savePatterns()
-                                        dlg.repreview()
-                                    }
-                                }
-                            }
-                        }
-                    }
-                    AppButton {
-                        text: qsTr("+ 添加规则")
-                        kind: "ghost"
-                        implicitHeight: 28
-                        leftPadding: 14; rightPadding: 14
-                        onClicked: {
-                            dlg.customPatterns.push("")
-                            dlg.customPatterns = dlg.customPatterns.slice()
-                        }
-                    }
-                    Item { Layout.fillHeight: true }
-                }
-            }
-
-            // ===== 预览表 =====
-            Rectangle {
-                Layout.fillWidth: true
-                Layout.fillHeight: true
-                Layout.leftMargin: Theme.pad
-                Layout.rightMargin: Theme.pad
-                Layout.topMargin: 8
-                radius: Theme.radiusSm
-                color: Theme.panelHi
-                border.width: 1; border.color: Theme.lineSoft
-
-                Flickable {
-                    id: previewList
-                    anchors.fill: parent
-                    anchors.margins: 6
-                    contentWidth: width
-                    contentHeight: previewCol.implicitHeight
-                    clip: true
-                    boundsBehavior: Flickable.StopAtBounds
-                    ScrollBar.vertical: ScrollBar { policy: ScrollBar.AsNeeded }
-
-                    ColumnLayout {
-                        id: previewCol
-                        width: previewList.width
-                        spacing: 2
-
-                        Text {
-                            visible: dlg.folders.length > 0 && dlg.items.length === 0
-                            Layout.fillWidth: true
-                            text: qsTr("没有符合条件的文件")
-                            color: Theme.textFaint
-                            font.family: Theme.fontUI
-                            font.pixelSize: 11
-                            horizontalAlignment: Text.AlignHCenter
-                            topPadding: 24
-                        }
-
-                        Repeater {
-                            model: dlg.items
-
-                            ColumnLayout {
-                                id: previewRow
-                                required property var modelData
-                                Layout.fillWidth: true
-                                spacing: 0
-
-                                RowLayout {
-                                    Layout.fillWidth: true
-                                    spacing: 8
-                                    Text {
-                                        Layout.fillWidth: true
-                                        text: previewRow.modelData.oldName
-                                        color: previewRow.modelData.changed ? Theme.textDim : Theme.textFaint
-                                        font.family: Theme.fontMono
-                                        font.pixelSize: 11
-                                        elide: Text.ElideMiddle
-                                    }
-                                    Text {
-                                        text: "→"
-                                        visible: previewRow.modelData.changed
-                                        color: Theme.textFaint
-                                        font.family: Theme.fontMono
-                                        font.pixelSize: 11
-                                    }
-                                    Text {
-                                        Layout.fillWidth: true
-                                        visible: previewRow.modelData.changed
-                                        text: previewRow.modelData.newName
-                                        color: previewRow.modelData.error ? Theme.seal : Theme.jade
-                                        font.family: Theme.fontMono
-                                        font.pixelSize: 11
-                                        elide: Text.ElideMiddle
-                                    }
-                                }
-                                Text {
-                                    visible: previewRow.modelData.error !== undefined && previewRow.modelData.error
-                                    Layout.fillWidth: true
-                                    Layout.leftMargin: 8
-                                    text: previewRow.modelData.error || ""
-                                    color: Theme.seal
-                                    font.family: Theme.fontUI
-                                    font.pixelSize: 10
-                                    wrapMode: Text.WordWrap
-                                }
-                            }
+                            Item { Layout.fillHeight: true; Layout.minimumHeight: 4 }
                         }
                     }
                 }

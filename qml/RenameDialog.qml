@@ -6,9 +6,9 @@ import QtQuick.Effects
 import QtCore
 import GifWaterMarkTool
 
-// 批量重命名弹窗：多文件夹累加选择 + 规则开关（去时间戳/括号/副本后缀）+ 自定义正则，
-// 实时预览「原名 → 新名」，执行时单文件原子改名（失败自动保持原名并提示）。
-// 布局：顶部文件夹横排（全宽换行）——右侧规则侧栏——左侧预览主区。
+// 批量重命名弹窗 —— 「校对单」：顶部大等宽读数（将改名/已符合），
+// 朱砂批注线贯通预览清单，清单只列「旧名 → 新名」的变换本身；
+// 右侧无框规则栏靠发丝线分隔。内部开放表面，不套内盒。
 Item {
     id: dlg
     anchors.fill: parent
@@ -19,6 +19,9 @@ Item {
     property var items: []          // preview 结果 [{path, dir, oldName, newName, changed, error}]
     property string statusText: ""
     property var customPatterns: [] // 自定义「匹配即删除」正则
+
+    readonly property var changedItems: items.filter(function(it) { return it.changed })
+    readonly property int failCount: items.filter(function(it) { return it.error }).length
 
     signal closed()
 
@@ -39,8 +42,8 @@ Item {
 
     Shortcut { sequences: ["Esc"]; onActivated: dlg.close() }
 
-    // 遮罩只拦截点击、不点外关闭：重命名是持续性工作（调规则/看预览），
-    // 误触外部不该丢面板；关闭走 × / 关闭按钮 / Esc（与导出结果面板同设计）
+    // 遮罩只拦截点击、不点外关闭：重命名是持续性工作，
+    // 关闭走 × / 关闭按钮 / Esc（与导出结果面板同设计）
     Item {
         anchors.fill: parent
         MouseArea { anchors.fill: parent }
@@ -69,10 +72,9 @@ Item {
             }
         }
         items = items.slice()   // 触发列表刷新
-        var changedCount = items.filter(function(it) { return it.changed }).length
         statusText = fails.length > 0
-            ? qsTr("成功 %1 · 失败 %2（失败文件已保持原名）").arg(changedCount - fails.length).arg(fails.length)
-            : qsTr("已重命名 %1 个文件").arg(changedCount)
+            ? qsTr("成功 %1 · 失败 %2（失败文件已保持原名）").arg(changedItems.length - fails.length).arg(fails.length)
+            : qsTr("已重命名 %1 个文件").arg(changedItems.length)
     }
 
     function removeFolder(i) {
@@ -163,7 +165,7 @@ Item {
             // ===== 标题栏（可拖动）=====
             Item {
                 Layout.fillWidth: true
-                Layout.preferredHeight: 54
+                Layout.preferredHeight: 52
                 MouseArea {
                     anchors.fill: parent
                     drag.target: panel
@@ -177,13 +179,20 @@ Item {
                     anchors.fill: parent
                     anchors.leftMargin: 16; anchors.rightMargin: 8
                     spacing: 10
-                    AppMark { size: 24 }
+                    AppMark { size: 22 }
                     Text {
                         text: qsTr("批量重命名")
                         color: Theme.text
                         font.family: Theme.fontUI
                         font.pixelSize: 15; font.bold: true
                         Layout.fillWidth: true
+                    }
+                    Text {
+                        visible: dlg.folders.length > 0
+                        text: dlg.folders.length + qsTr(" 个文件夹")
+                        color: Theme.textFaint
+                        font.family: Theme.fontMono
+                        font.pixelSize: 11
                     }
                     AppButton {
                         text: "×"
@@ -195,189 +204,305 @@ Item {
                 Rectangle { anchors.bottom: parent.bottom; width: parent.width; height: 1; color: Theme.lineSoft }
             }
 
-            // ===== 文件夹横排（全宽，自动换行）=====
+            // ===== 文件夹行（流式，muted——它们是上下文不是主角）=====
             Item {
                 Layout.fillWidth: true
                 Layout.leftMargin: Theme.pad
                 Layout.rightMargin: Theme.pad
-                Layout.topMargin: 10
-                implicitHeight: folderFlow.implicitHeight + addFolderBtn.height + 14
+                Layout.topMargin: 8
+                implicitHeight: folderFlow.implicitHeight
 
-                ColumnLayout {
-                    id: folderArea
-                    anchors.fill: parent
-                    spacing: 8
+                Flow {
+                    id: folderFlow
+                    width: parent.width
+                    spacing: 6
 
-                    Flow {
-                        id: folderFlow
-                        Layout.fillWidth: true
-                        spacing: 6
+                    Repeater {
+                        model: dlg.folders
+                        Rectangle {
+                            id: folderChip
+                            required property string modelData
+                            required property int index
+                            width: chipText.implicitWidth + 40
+                            height: 26
+                            radius: Theme.radiusXs
+                            color: "transparent"
+                            border.width: 1; border.color: Theme.line
 
-                        Repeater {
-                            model: dlg.folders
+                            MouseArea {
+                                id: chipHover
+                                anchors.fill: parent
+                                hoverEnabled: true
+                            }
+                            Text {
+                                id: chipText
+                                anchors.left: parent.left
+                                anchors.leftMargin: 9
+                                anchors.right: rmBtn.left
+                                anchors.rightMargin: 3
+                                anchors.verticalCenter: parent.verticalCenter
+                                text: folderChip.modelData.replace(/^.*[\\/]/, "")
+                                color: chipHover.containsMouse ? Theme.text : Theme.textDim
+                                font.family: Theme.fontMono
+                                font.pixelSize: 10
+                            }
                             Rectangle {
-                                id: folderChip
-                                required property string modelData
-                                required property int index
-                                width: chipText.implicitWidth + 44
-                                height: 30
-                                radius: Theme.radiusSm
-                                color: Theme.panelHi
-                                border.width: 1; border.color: Theme.line
-
+                                id: rmBtn
+                                width: 18; height: 18; radius: 9
+                                anchors.right: parent.right
+                                anchors.rightMargin: 5
+                                anchors.verticalCenter: parent.verticalCenter
+                                color: rmMa.containsMouse ? Theme.panelHover : "transparent"
                                 Text {
-                                    id: chipText
-                                    anchors.left: parent.left
-                                    anchors.leftMargin: 10
-                                    anchors.right: rmBtn.left
-                                    anchors.rightMargin: 4
-                                    anchors.verticalCenter: parent.verticalCenter
-                                    text: folderChip.modelData.replace(/^.*[\\/]/, "")
-                                    color: Theme.text
-                                    font.family: Theme.fontMono
-                                    font.pixelSize: 11
+                                    anchors.centerIn: parent
+                                    text: "×"; font.pixelSize: 11
+                                    color: Theme.textFaint
                                 }
                                 MouseArea {
-                                    id: chipHover
+                                    id: rmMa
                                     anchors.fill: parent
                                     hoverEnabled: true
+                                    cursorShape: Qt.PointingHandCursor
+                                    onClicked: dlg.removeFolder(folderChip.index)
                                 }
-                                Rectangle {
-                                    id: rmBtn
-                                    width: 20; height: 20; radius: 10
-                                    anchors.right: parent.right
-                                    anchors.rightMargin: 6
-                                    anchors.verticalCenter: parent.verticalCenter
-                                    color: rmMa.containsMouse ? Theme.line : "transparent"
-                                    Text {
-                                        anchors.centerIn: parent
-                                        text: "×"; font.pixelSize: 12
-                                        color: Theme.textDim
-                                    }
-                                    MouseArea {
-                                        id: rmMa
-                                        anchors.fill: parent
-                                        hoverEnabled: true
-                                        cursorShape: Qt.PointingHandCursor
-                                        onClicked: dlg.removeFolder(folderChip.index)
-                                    }
-                                }
-                                ToolTip.visible: chipHover.containsMouse
-                                ToolTip.delay: 400
-                                ToolTip.text: folderChip.modelData
                             }
-                        }
-
-                        // 添加按钮跟在最后一个 chip 后面
-                        AppButton {
-                            id: addFolderBtn
-                            text: qsTr("+ 添加文件夹")
-                            kind: "ghost"
-                            implicitHeight: 30
-                            onClicked: addFolderDialog.open()
+                            ToolTip.visible: chipHover.containsMouse
+                            ToolTip.delay: 400
+                            ToolTip.text: folderChip.modelData
                         }
                     }
 
-                    Text {
-                        visible: dlg.folders.length === 0
-                        Layout.fillWidth: true
-                        text: qsTr("还没有选择文件夹，点击「+ 添加文件夹」开始（可添加多个）")
-                        color: Theme.textFaint
-                        font.family: Theme.fontUI
-                        font.pixelSize: 11
+                    // 添加按钮跟在 chip 行尾
+                    AppButton {
+                        text: qsTr("+ 添加文件夹")
+                        kind: "ghost"
+                        implicitHeight: 26
+                        onClicked: addFolderDialog.open()
                     }
                 }
             }
 
-            // ===== 主区：预览（左大）+ 规则侧栏（右窄）=====
+            // ===== 主区：校对单（左）+ 规则栏（右，发丝线分隔）=====
             RowLayout {
                 Layout.fillWidth: true
                 Layout.fillHeight: true
                 Layout.leftMargin: Theme.pad
                 Layout.rightMargin: Theme.pad
                 Layout.topMargin: 4
-                spacing: Theme.gap
+                spacing: 0
 
-                // —— 预览主区 ——
-                Rectangle {
+                // —— 校对单 ——
+                Item {
                     Layout.fillWidth: true
                     Layout.fillHeight: true
-                    radius: Theme.radiusSm
-                    color: Theme.panelHi
-                    border.width: 1; border.color: Theme.lineSoft
 
-                    Flickable {
-                        id: previewList
+                    // 朱砂批注线：贯通读数与清单（签名元素，呼应 Section 眉标与印章身份）
+                    // （anchor 只能连 parent/sibling，这里用几何绑定跟随 ColumnLayout 布置）
+                    Rectangle {
+                        x: 0
+                        width: 3
+                        radius: 1.5
+                        color: Theme.seal
+                        y: statRow.y
+                        height: (sheet.y + sheet.height) - statRow.y
+                    }
+
+                    ColumnLayout {
+                        id: proofSheet
                         anchors.fill: parent
-                        anchors.margins: 6
-                        contentWidth: width
-                        contentHeight: previewCol.implicitHeight
-                        clip: true
-                        boundsBehavior: Flickable.StopAtBounds
-                        ScrollBar.vertical: ScrollBar { policy: ScrollBar.AsNeeded }
+                        anchors.leftMargin: 14
+                        spacing: 8
 
-                        ColumnLayout {
-                            id: previewCol
-                            width: previewList.width
-                            spacing: 2
+                        // —— 大等宽读数（hero）——
+                        RowLayout {
+                            id: statRow
+                            Layout.fillWidth: true
+                            spacing: 18
 
-                            Text {
-                                visible: dlg.folders.length > 0 && dlg.items.length === 0
-                                Layout.fillWidth: true
-                                text: qsTr("没有符合条件的文件")
-                                color: Theme.textFaint
-                                font.family: Theme.fontUI
-                                font.pixelSize: 11
-                                horizontalAlignment: Text.AlignHCenter
-                                topPadding: 24
+                            RowLayout {
+                                spacing: 7
+                                Text {
+                                    text: dlg.changedItems.length
+                                    color: dlg.changedItems.length > 0 ? Theme.jade : Theme.textFaint
+                                    font.family: Theme.fontMono
+                                    font.pixelSize: 26; font.bold: true
+                                }
+                                Text {
+                                    text: qsTr("将改名")
+                                    color: Theme.textDim
+                                    font.family: Theme.fontUI
+                                    font.pixelSize: 11
+                                    Layout.alignment: Qt.AlignBaseline
+                                }
                             }
+                            RowLayout {
+                                spacing: 7
+                                visible: dlg.items.length > dlg.changedItems.length
+                                Text {
+                                    text: dlg.items.length - dlg.changedItems.length
+                                    color: Theme.textFaint
+                                    font.family: Theme.fontMono
+                                    font.pixelSize: 26; font.bold: true
+                                }
+                                Text {
+                                    text: qsTr("已符合")
+                                    color: Theme.textFaint
+                                    font.family: Theme.fontUI
+                                    font.pixelSize: 11
+                                    Layout.alignment: Qt.AlignBaseline
+                                }
+                            }
+                            RowLayout {
+                                spacing: 7
+                                visible: dlg.failCount > 0
+                                Text {
+                                    text: dlg.failCount
+                                    color: Theme.seal
+                                    font.family: Theme.fontMono
+                                    font.pixelSize: 26; font.bold: true
+                                }
+                                Text {
+                                    text: qsTr("失败")
+                                    color: Theme.seal
+                                    font.family: Theme.fontUI
+                                    font.pixelSize: 11
+                                    Layout.alignment: Qt.AlignBaseline
+                                }
+                            }
+                            Item { Layout.fillWidth: true }
+                        }
 
-                            Repeater {
-                                model: dlg.items
+                        // —— 变换清单（只列将改名的；已符合的收在读数里）——
+                        Flickable {
+                            id: sheet
+                            Layout.fillWidth: true
+                            Layout.fillHeight: true
+                            contentWidth: width
+                            contentHeight: proofCol.implicitHeight
+                            clip: true
+                            boundsBehavior: Flickable.StopAtBounds
+                            ScrollBar.vertical: ScrollBar { policy: ScrollBar.AsNeeded }
 
+                            ColumnLayout {
+                                id: proofCol
+                                width: sheet.width
+                                spacing: 0
+
+                                // 空态 A：没有文件夹 —— 邀请行动
                                 ColumnLayout {
-                                    id: previewRow
-                                    required property var modelData
                                     Layout.fillWidth: true
-                                    spacing: 0
-
-                                    RowLayout {
-                                        Layout.fillWidth: true
-                                        spacing: 8
-                                        Text {
-                                            Layout.fillWidth: true
-                                            text: previewRow.modelData.oldName
-                                            color: previewRow.modelData.changed ? Theme.textDim : Theme.textFaint
-                                            font.family: Theme.fontMono
-                                            font.pixelSize: 11
-                                            elide: Text.ElideMiddle
-                                        }
-                                        Text {
-                                            text: "→"
-                                            visible: previewRow.modelData.changed
-                                            color: Theme.textFaint
-                                            font.family: Theme.fontMono
-                                            font.pixelSize: 11
-                                        }
-                                        Text {
-                                            Layout.fillWidth: true
-                                            visible: previewRow.modelData.changed
-                                            text: previewRow.modelData.newName
-                                            color: previewRow.modelData.error ? Theme.seal : Theme.jade
-                                            font.family: Theme.fontMono
-                                            font.pixelSize: 11
-                                            elide: Text.ElideMiddle
-                                        }
+                                    visible: dlg.folders.length === 0
+                                    spacing: 10
+                                    Item { Layout.fillHeight: true; Layout.minimumHeight: 20 }
+                                    Text {
+                                        Layout.alignment: Qt.AlignHCenter
+                                        text: qsTr("把要整理的文件夹加进来")
+                                        color: Theme.textDim
+                                        font.family: Theme.fontUI
+                                        font.pixelSize: 13
                                     }
                                     Text {
-                                        visible: previewRow.modelData.error !== undefined && previewRow.modelData.error
-                                        Layout.fillWidth: true
-                                        Layout.leftMargin: 8
-                                        text: previewRow.modelData.error || ""
-                                        color: Theme.seal
+                                        Layout.alignment: Qt.AlignHCenter
+                                        text: qsTr("按规则清掉文件名里的时间戳、括号和副本后缀")
+                                        color: Theme.textFaint
                                         font.family: Theme.fontUI
-                                        font.pixelSize: 10
-                                        wrapMode: Text.WordWrap
+                                        font.pixelSize: 11
+                                    }
+                                    AppButton {
+                                        Layout.alignment: Qt.AlignHCenter
+                                        Layout.topMargin: 6
+                                        text: qsTr("+ 添加文件夹")
+                                        kind: "primary"
+                                        implicitHeight: 36
+                                        leftPadding: 24; rightPadding: 24
+                                        onClicked: addFolderDialog.open()
+                                    }
+                                    Item { Layout.fillHeight: true; Layout.minimumHeight: 20 }
+                                }
+
+                                // 空态 B：有文件夹但全部已符合 —— 收工状态
+                                ColumnLayout {
+                                    Layout.fillWidth: true
+                                    visible: dlg.folders.length > 0 && dlg.items.length === dlg.changedItems.length
+                                    spacing: 6
+                                    Item { Layout.fillHeight: true; Layout.minimumHeight: 20 }
+                                    Text {
+                                        Layout.alignment: Qt.AlignHCenter
+                                        text: qsTr("✓ 所有文件的名字都已是整理后的样子")
+                                        color: Theme.jade
+                                        font.family: Theme.fontUI
+                                        font.pixelSize: 13
+                                    }
+                                    Item { Layout.fillHeight: true; Layout.minimumHeight: 20 }
+                                }
+
+                                // 空态 C：有文件夹但没有符合条件（如仅 GIF 开着但全是 png）
+                                Text {
+                                    visible: dlg.folders.length > 0 && dlg.items.length === 0
+                                    Layout.fillWidth: true
+                                    text: qsTr("没有符合条件的文件（看看右侧「仅 GIF」是否该关掉）")
+                                    color: Theme.textFaint
+                                    font.family: Theme.fontUI
+                                    font.pixelSize: 11
+                                    horizontalAlignment: Text.AlignHCenter
+                                    topPadding: 24
+                                }
+
+                                // 变换行：旧名（暗） → 新名（玉绿）
+                                Repeater {
+                                    model: dlg.changedItems
+
+                                    ColumnLayout {
+                                        id: proofRow
+                                        required property var modelData
+                                        Layout.fillWidth: true
+                                        spacing: 0
+
+                                        RowLayout {
+                                            Layout.fillWidth: true
+                                            Layout.topMargin: 5
+                                            Layout.bottomMargin: 5
+                                            spacing: 8
+                                            Text {
+                                                Layout.fillWidth: true
+                                                text: proofRow.modelData.oldName
+                                                color: Theme.textFaint
+                                                font.family: Theme.fontMono
+                                                font.pixelSize: 11
+                                                elide: Text.ElideMiddle
+                                            }
+                                            Text {
+                                                text: "→"
+                                                color: Theme.textFaint
+                                                font.family: Theme.fontMono
+                                                font.pixelSize: 11
+                                            }
+                                            Text {
+                                                Layout.fillWidth: true
+                                                text: proofRow.modelData.newName
+                                                color: proofRow.modelData.error ? Theme.seal : Theme.jade
+                                                font.family: Theme.fontMono
+                                                font.pixelSize: 11; font.bold: true
+                                                elide: Text.ElideMiddle
+                                            }
+                                        }
+                                        // 失败原因（执行后才有）
+                                        Text {
+                                            visible: proofRow.modelData.error !== undefined && proofRow.modelData.error
+                                            Layout.fillWidth: true
+                                            Layout.leftMargin: 8
+                                            text: proofRow.modelData.error || ""
+                                            color: Theme.seal
+                                            font.family: Theme.fontUI
+                                            font.pixelSize: 10
+                                            wrapMode: Text.WordWrap
+                                        }
+                                        Rectangle {
+                                            Layout.fillWidth: true
+                                            Layout.topMargin: 5
+                                            height: 1
+                                            color: Theme.lineSoft
+                                        }
                                     }
                                 }
                             }
@@ -385,18 +510,25 @@ Item {
                     }
                 }
 
-                // —— 规则侧栏（窄列，可滚动）——
+                // —— 发丝分隔线 ——
                 Rectangle {
-                    Layout.preferredWidth: 236
+                    Layout.preferredWidth: 1
                     Layout.fillHeight: true
-                    radius: Theme.radiusSm
-                    color: Theme.panelHi
-                    border.width: 1; border.color: Theme.lineSoft
+                    Layout.leftMargin: Theme.pad
+                    color: Theme.lineSoft
+                }
+
+                // —— 规则栏（无框，安静的一列）——
+                ColumnLayout {
+                    Layout.preferredWidth: 224
+                    Layout.fillHeight: true
+                    Layout.leftMargin: Theme.pad
+                    spacing: 4
 
                     Flickable {
                         id: ruleList
-                        anchors.fill: parent
-                        anchors.margins: 8
+                        Layout.fillWidth: true
+                        Layout.fillHeight: true
                         contentWidth: width
                         contentHeight: ruleCol.implicitHeight
                         clip: true
@@ -406,32 +538,33 @@ Item {
                         ColumnLayout {
                             id: ruleCol
                             width: ruleList.width
-                            spacing: 6
+                            spacing: 2
 
                             Text {
-                                text: qsTr("规则")
-                                color: Theme.text
+                                text: qsTr("清理规则")
+                                color: Theme.textFaint
                                 font.family: Theme.fontUI
-                                font.pixelSize: 12; font.bold: true
+                                font.pixelSize: 10; font.bold: true
+                                Layout.bottomMargin: 4
                             }
 
                             SwitchRow {
                                 Layout.fillWidth: true
-                                text: qsTr("去时间戳段")
-                                caption: qsTr("2026-06-26-20-07-33 与 14 位纯数字")
+                                text: qsTr("时间戳")
+                                caption: qsTr("2026-06-26-20-07-33 与 14 位数字")
                                 checked: rnSettings.stripTimestamp
                                 onToggled: function(v) { rnSettings.stripTimestamp = v; dlg.repreview() }
                             }
                             SwitchRow {
                                 Layout.fillWidth: true
-                                text: qsTr("去括号")
-                                caption: qsTr("只删括号本身，保留内容")
+                                text: qsTr("括号")
+                                caption: qsTr("只删括号，保留内容")
                                 checked: rnSettings.stripBrackets
                                 onToggled: function(v) { rnSettings.stripBrackets = v; dlg.repreview() }
                             }
                             SwitchRow {
                                 Layout.fillWidth: true
-                                text: qsTr("去副本后缀")
+                                text: qsTr("副本后缀")
                                 caption: qsTr("段尾「空格+数字」，如「哭 1」")
                                 checked: rnSettings.stripCopySuffix
                                 onToggled: function(v) { rnSettings.stripCopySuffix = v; dlg.repreview() }
@@ -449,17 +582,17 @@ Item {
                                 onToggled: function(v) { rnSettings.recursive = v; dlg.repreview() }
                             }
 
-                            Rectangle { Layout.fillWidth: true; height: 1; color: Theme.lineSoft }
-
                             Text {
-                                text: qsTr("自定义去除规则")
-                                color: Theme.text
+                                text: qsTr("自定义去除")
+                                color: Theme.textFaint
                                 font.family: Theme.fontUI
-                                font.pixelSize: 12; font.bold: true
+                                font.pixelSize: 10; font.bold: true
+                                Layout.topMargin: 12
+                                Layout.bottomMargin: 4
                             }
                             Text {
                                 Layout.fillWidth: true
-                                text: qsTr("正则表达式，文件名（不含扩展名）中匹配到的部分会被删除，预览实时可见。点击示例填入：")
+                                text: qsTr("正则，匹配即删，预览实时可见：")
                                 color: Theme.textFaint
                                 font.family: Theme.fontUI
                                 font.pixelSize: 10
@@ -467,6 +600,7 @@ Item {
                             }
                             Flow {
                                 Layout.fillWidth: true
+                                Layout.topMargin: 2
                                 spacing: 6
                                 Repeater {
                                     // 快捷示例：点击追加为一条自定义规则（hover 有用途说明）
@@ -479,9 +613,9 @@ Item {
                                         id: exChip
                                         required property var modelData
                                         radius: Theme.radiusXs
-                                        height: 24
-                                        width: exText.implicitWidth + 16
-                                        color: exMa.containsMouse ? Theme.panelHover : Theme.panel
+                                        height: 22
+                                        width: exText.implicitWidth + 14
+                                        color: exMa.containsMouse ? Theme.panelHover : Theme.panelHi
                                         border.width: 1; border.color: Theme.line
                                         Text {
                                             id: exText
@@ -517,7 +651,8 @@ Item {
                                     required property string modelData
                                     required property int index
                                     Layout.fillWidth: true
-                                    spacing: 6
+                                    Layout.topMargin: 6
+                                    spacing: 4
                                     TextField {
                                         id: ptnField
                                         Layout.fillWidth: true
@@ -525,10 +660,10 @@ Item {
                                         text: ptnRow.modelData
                                         font.family: Theme.fontMono
                                         font.pixelSize: 11
-                                        color: renamer.isPatternValid(text) ? Theme.text : Theme.seal
+                                        color: renamer.isPatternValid(ptnField.text) ? Theme.text : Theme.seal
                                         background: Rectangle {
                                             radius: Theme.radiusSm
-                                            color: Theme.panel
+                                            color: Theme.panelHi
                                             border.width: 1
                                             border.color: renamer.isPatternValid(ptnField.text) ? Theme.line : Theme.seal
                                         }
@@ -539,9 +674,9 @@ Item {
                                         }
                                     }
                                     Rectangle {
-                                        width: 26; height: 26; radius: 13
-                                        color: ptnMa.containsMouse ? Theme.line : "transparent"
-                                        Text { anchors.centerIn: parent; text: "×"; font.pixelSize: 13; color: Theme.textDim }
+                                        width: 24; height: 24; radius: 12
+                                        color: ptnMa.containsMouse ? Theme.panelHover : "transparent"
+                                        Text { anchors.centerIn: parent; text: "×"; font.pixelSize: 12; color: Theme.textFaint }
                                         MouseArea {
                                             id: ptnMa
                                             anchors.fill: parent
@@ -558,6 +693,7 @@ Item {
                                 }
                             }
                             AppButton {
+                                Layout.topMargin: 6
                                 text: qsTr("+ 添加规则")
                                 kind: "ghost"
                                 implicitHeight: 28
@@ -567,7 +703,7 @@ Item {
                                     dlg.customPatterns = dlg.customPatterns.slice()
                                 }
                             }
-                            Item { Layout.fillHeight: true; Layout.minimumHeight: 4 }
+                            Item { Layout.fillHeight: true; Layout.minimumHeight: 8 }
                         }
                     }
                 }
@@ -576,30 +712,30 @@ Item {
             // ===== 底栏 =====
             Item {
                 Layout.fillWidth: true
-                Layout.preferredHeight: 54
+                Layout.preferredHeight: 56
                 Rectangle { anchors.top: parent.top; width: parent.width; height: 1; color: Theme.lineSoft }
                 RowLayout {
                     anchors.fill: parent
                     anchors.leftMargin: 16; anchors.rightMargin: 14
                     spacing: 10
                     Text {
-                        text: dlg.statusText !== ""
-                              ? dlg.statusText
-                              : qsTr("%1 个文件 · 将改名 %2 个")
-                                .arg(dlg.items.length)
-                                .arg(dlg.items.filter(function(it) { return it.changed }).length)
-                        color: Theme.textDim
+                        text: dlg.statusText
+                        visible: dlg.statusText !== ""
+                        color: dlg.failCount > 0 ? Theme.seal : Theme.textDim
                         font.family: Theme.fontMono
                         font.pixelSize: 11
                         Layout.fillWidth: true
                         elide: Text.ElideRight
                     }
+                    Item { Layout.fillWidth: true; visible: dlg.statusText === "" }
                     AppButton {
-                        text: qsTr("执行重命名")
+                        text: dlg.changedItems.length > 0
+                              ? qsTr("执行重命名 %1").arg(dlg.changedItems.length)
+                              : qsTr("执行重命名")
                         kind: "primary"
                         implicitHeight: 34
                         leftPadding: 18; rightPadding: 18
-                        enabled: dlg.items.some(function(it) { return it.changed })
+                        enabled: dlg.changedItems.length > 0
                         onClicked: dlg.doApply()
                     }
                     AppButton {

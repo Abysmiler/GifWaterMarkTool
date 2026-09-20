@@ -38,10 +38,11 @@ Item {
 
     Shortcut { sequences: ["Esc"]; onActivated: dlg.close() }
 
-    // 点外关闭（预览不构成未保存损失：规则和文件夹都持久化在设置里）
+    // 遮罩只拦截点击、不点外关闭：重命名是持续性工作（调规则/看预览），
+    // 误触外部不该丢面板；关闭走 × / 关闭按钮 / Esc（与导出结果面板同设计）
     Item {
         anchors.fill: parent
-        MouseArea { anchors.fill: parent; onClicked: dlg.close() }
+        MouseArea { anchors.fill: parent }
     }
 
     function repreview() {

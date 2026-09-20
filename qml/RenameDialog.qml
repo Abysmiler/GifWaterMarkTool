@@ -388,6 +388,8 @@ Item {
                             ColumnLayout {
                                 id: proofCol
                                 width: sheet.width
+                                // 内容少时也撑满视口，让空态能垂直居中；内容多时按实际高度滚动
+                                height: Math.max(sheet.height, proofCol.implicitHeight)
                                 spacing: 0
 
                                 // 空态 A：没有文件夹 —— 邀请行动

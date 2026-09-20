@@ -400,7 +400,7 @@ Item {
 
                                     Column {
                                         anchors.centerIn: parent
-                                        anchors.verticalCenterOffset: -14
+                                        anchors.verticalCenterOffset: -34
                                         spacing: 10
                                         Text {
                                             anchors.horizontalCenter: parent.horizontalCenter
@@ -435,7 +435,7 @@ Item {
 
                                     Text {
                                         anchors.centerIn: parent
-                                        anchors.verticalCenterOffset: -14
+                                        anchors.verticalCenterOffset: -34
                                         text: qsTr("✓ 所有文件的名字都已是整理后的样子")
                                         color: Theme.jade
                                         font.family: Theme.fontUI
@@ -451,7 +451,7 @@ Item {
 
                                     Text {
                                         anchors.centerIn: parent
-                                        anchors.verticalCenterOffset: -14
+                                        anchors.verticalCenterOffset: -34
                                         width: parent.width - 32
                                         text: qsTr("没有符合条件的文件（看看右侧「仅 GIF」是否该关掉）")
                                         color: Theme.textFaint

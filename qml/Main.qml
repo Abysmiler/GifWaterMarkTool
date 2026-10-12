@@ -20,6 +20,9 @@ ApplicationWindow {
     readonly property int inspW: 344
     readonly property int statusH: 36
 
+    // ---- 模式：0=水印工作台 1=转视频工作台 ----
+    property int appMode: 0
+
     // ---- 共享水印参数 ----
     property real wmScale: 0.1
     property real wmOpacity: 1.0
@@ -387,6 +390,7 @@ ApplicationWindow {
 
             CanvasPreview {
                 id: preview
+                visible: window.appMode === 0
                 anchors.fill: parent
                 leftInset: window.m
                 topInset: window.m + window.stripH + window.m
@@ -413,6 +417,7 @@ ApplicationWindow {
 
         DropArea {
             anchors.fill: parent
+            enabled: window.appMode === 0
             onEntered: function(drag) { drag.accepted = drag.hasUrls }
             onDropped: function(drop) {
                 // 拖入多张：GIF 全收（首张进预览），PNG 取第一张作水印
@@ -465,7 +470,21 @@ ApplicationWindow {
 
                 Rectangle { Layout.preferredWidth: 1; Layout.preferredHeight: 28; color: Theme.line; opacity: 0.7 }
 
+                // 模式切换：水印 / 转视频
+                Segmented {
+                    implicitWidth: 170
+                    model: [qsTr("水印"), qsTr("转视频")]
+                    currentIndex: window.appMode
+                    onActivated: function(i) { window.appMode = i }
+                }
+
+                Rectangle {
+                    Layout.preferredWidth: 1; Layout.preferredHeight: 28; color: Theme.line; opacity: 0.7
+                    visible: window.appMode === 0
+                }
+
                 FileChip {
+                    visible: window.appMode === 0
                     glyph: "GIF"
                     role: qsTr("GIF 文件")
                     accent: Theme.jade
@@ -482,6 +501,7 @@ ApplicationWindow {
                     }
                 }
                 FileChip {
+                    visible: window.appMode === 0
                     glyph: "OUT"
                     role: qsTr("导出到")
                     accent: Theme.textDim
@@ -498,6 +518,7 @@ ApplicationWindow {
                 Item { Layout.fillWidth: true }
 
                 AppButton {
+                    visible: window.appMode === 0
                     text: qsTr("重命名")
                     kind: "ghost"
                     onClicked: renameDlg.open()
@@ -510,11 +531,12 @@ ApplicationWindow {
                 AppButton {
                     text: qsTr("取消")
                     kind: "ghost"
-                    visible: runner.running
+                    visible: window.appMode === 0 && runner.running
                     onClicked: runner.cancelExport()
                 }
                 AppButton {
                     id: exportBtn
+                    visible: window.appMode === 0
                     text: runner.running ? qsTr("导出中…") : qsTr("导出 GIF")
                     kind: "primary"
                     implicitHeight: 38
@@ -528,9 +550,10 @@ ApplicationWindow {
             }
         }
 
-        // ===== 右侧检视器（玻璃）=====
+        // ===== 右侧检视器（玻璃，水印模式）=====
         GlassPanel {
             id: inspectorGlass
+            visible: window.appMode === 0
             stageItem: stageLayer
             width: window.inspW
             anchors.right: parent.right
@@ -591,9 +614,10 @@ ApplicationWindow {
             }
         }
 
-        // ===== 底部仪表胶囊（玻璃）=====
+        // ===== 底部仪表胶囊（玻璃，水印模式）=====
         GlassPanel {
             id: statusGlass
+            visible: window.appMode === 0
             stageItem: stageLayer
             radius: Theme.radiusSm
             x: window.m
@@ -696,6 +720,18 @@ ApplicationWindow {
             width: parent.width * (window.exportOverallPct / 100)
             color: Theme.seal
             Behavior on width { NumberAnimation { duration: 120 } }
+        }
+
+        // ===== 转视频工作台（自包含视图，挂在命令条下方）=====
+        Item {
+            visible: window.appMode === 1
+            anchors.left: parent.left
+            anchors.right: parent.right
+            anchors.top: stripGlass.bottom
+            anchors.topMargin: window.m
+            anchors.bottom: parent.bottom
+
+            VideoView { anchors.fill: parent }
         }
 
         // ===== 设置弹窗（毛玻璃，浮于应用之上）=====

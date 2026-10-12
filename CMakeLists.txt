@@ -29,6 +29,7 @@ qt_add_executable(GifWaterMarkTool
     core/gifprobe.cpp
     core/ffmpegrunner.cpp
     core/renamer.cpp
+    core/videoexporter.cpp
     ${GWM_WIN_RC}
 )
 
@@ -56,6 +57,7 @@ qt_add_qml_module(GifWaterMarkTool
         qml/SwitchRow.qml
         qml/SettingsDialog.qml
         qml/RenameDialog.qml
+        qml/VideoView.qml
 )
 
 # 窗口/任务栏图标：嵌入 :/icons/appicon.png，main.cpp 里 setWindowIcon

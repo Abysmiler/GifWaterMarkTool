@@ -1,5 +1,6 @@
 #pragma once
 
+#include <QHash>
 #include <QObject>
 #include <QProcess>
 #include <QString>
@@ -28,6 +29,10 @@ public:
 
     // 探测 GIF：durationMs(失败 -1)、width/height(失败 0)，供界面换算成片时长
     Q_INVOKABLE QVariantMap probeGif(const QString &gifPath) const;
+
+    // 抽取第一帧到临时 PNG，返回 file:/// url（同路径有缓存）；失败返回空串。
+    // 供界面预览 GIF 内容。
+    Q_INVOKABLE QString extractPreview(const QString &gifPath);
 
     // 导出单个 GIF → MP4。loops=总播放次数(≥1，实现用 -stream_loop loops-1)。
     // outWidth/outHeight 为画布尺寸（GIF 等比缩进画布，余量补黑边），fps/crf 编码参数。
@@ -62,4 +67,5 @@ private:
     bool m_running = false;
     bool m_cancelled = false;
     QByteArray m_stderrBuffer;
+    QHash<QString, QString> m_previewCache;   // gifPath → 预览图 url
 };

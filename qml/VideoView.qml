@@ -76,6 +76,13 @@ Item {
     // ---- 队列调度 ----
     property int current: -1        // 正在导出的任务下标；-1 空闲
     property bool running: false
+    property int selectedIndex: -1  // 预览台显示的任务；-1=最新一段
+
+    readonly property var activeTask: {
+        if (tasks.length === 0) return null
+        var i = selectedIndex >= 0 && selectedIndex < tasks.length ? selectedIndex : tasks.length - 1
+        return tasks[i]
+    }
 
     function fmtSec(ms) {
         if (!(ms > 0)) return "—"
@@ -87,18 +94,30 @@ Item {
         for (var i = 0; i < tasks.length; i++)
             if (tasks[i].path === path && tasks[i].status === "wait") { toast.show(qsTr("该 GIF 已在清单里"), false, ""); return }
         var info = exporter.probeGif(path)
-        tasks.push({
+        var task = {
             path: path,
             name: path.replace(/^.*[\\/]/, ""),
             durationMs: info.durationMs,
+            width: info.width,
+            height: info.height,
+            previewUrl: "",
             // 默认补足 ≈10 秒；源时长未知则 ×1
             loops: info.durationMs > 0 ? Math.max(1, Math.round(10000 / info.durationMs)) : 1,
             status: "wait", err: "", outPath: "", progress: 0
-        })
+        }
+        tasks.push(task)
+        tasks = tasks.slice()
+        selectedIndex = tasks.length - 1
+        task.previewUrl = exporter.extractPreview(path)
         tasks = tasks.slice()
     }
 
-    function removeTask(i) { tasks.splice(i, 1); tasks = tasks.slice() }
+    function removeTask(i) {
+        tasks.splice(i, 1)
+        tasks = tasks.slice()
+        if (selectedIndex >= tasks.length)
+            selectedIndex = tasks.length - 1
+    }
 
     function outPathFor(t) {
         var dir = vsSettings.outFolder
@@ -210,11 +229,119 @@ Item {
                 Rectangle { anchors.bottom: parent.bottom; width: parent.width; height: 1; color: Theme.lineSoft }
             }
 
-            // 清单体
+            // ===== 预览台：选中 GIF 的首帧画面（拷贝台体验，同水印模式）=====
+            Item {
+                id: stage
+                Layout.fillWidth: true
+                Layout.fillHeight: true
+
+                // 台面（极淡棋盘 + 发光渐变）
+                Rectangle {
+                    id: stageSurface
+                    anchors.fill: parent
+                    anchors.margins: 12
+                    radius: Theme.radiusSm
+                    color: Theme.stageBg
+                    border.width: 1; border.color: Theme.lineSoft
+                    Rectangle {
+                        anchors.fill: parent
+                        radius: parent.radius
+                        gradient: Gradient {
+                            GradientStop { position: 0.0; color: Qt.rgba(1,1,1,0.55) }
+                            GradientStop { position: 1.0; color: Qt.rgba(1,1,1,0.0) }
+                        }
+                    }
+                }
+
+                // 画面（首帧，等比缩放居中）
+                Image {
+                    anchors.centerIn: parent
+                    anchors.verticalCenterOffset: -10
+                    visible: view.activeTask !== null && view.activeTask.previewUrl !== ""
+                    source: view.activeTask ? view.activeTask.previewUrl : ""
+                    fillMode: Image.PreserveAspectFit
+                    mipmap: true
+                    cache: false
+                    asynchronous: true
+                    property real maxW: stage.width - 80
+                    property real maxH: stage.height - 90
+                    width: Math.min(maxW, implicitWidth * (maxH / Math.max(1, implicitHeight)))
+                    height: width * implicitHeight / Math.max(1, implicitWidth)
+                }
+
+                // 读数胶囊（尺寸 · 时长 · 循环后成片）
+                RowLayout {
+                    visible: view.activeTask !== null
+                    spacing: 8
+                    anchors.horizontalCenter: parent.horizontalCenter
+                    anchors.bottom: parent.bottom
+                    anchors.bottomMargin: 18
+                    Rectangle {
+                        radius: Theme.radiusSm
+                        color: Theme.panel
+                        border.width: 1; border.color: Theme.line
+                        width: metaRow.implicitWidth + 24
+                        height: 28
+                        RowLayout {
+                            id: metaRow
+                            anchors.centerIn: parent
+                            spacing: 8
+                            Text {
+                                text: view.activeTask
+                                      ? (view.activeTask.width > 0 ? view.activeTask.width + "×" + view.activeTask.height : "—")
+                                      : ""
+                                color: Theme.textDim
+                                font.family: Theme.fontMono
+                                font.pixelSize: 11
+                            }
+                            Rectangle { width: 1; height: 10; color: Theme.line }
+                            Text {
+                                text: view.activeTask ? view.fmtSec(view.activeTask.durationMs) : ""
+                                color: Theme.textDim
+                                font.family: Theme.fontMono
+                                font.pixelSize: 11
+                            }
+                            Text { text: "→"; color: Theme.textFaint; font.family: Theme.fontMono; font.pixelSize: 11 }
+                            Text {
+                                text: view.activeTask
+                                      ? view.fmtSec(view.activeTask.durationMs > 0 ? view.activeTask.durationMs * view.activeTask.loops : -1)
+                                      : ""
+                                color: Theme.jade
+                                font.family: Theme.fontMono
+                                font.pixelSize: 11; font.bold: true
+                            }
+                        }
+                    }
+                }
+
+                // 空态：邀请（居中）
+                Column {
+                    anchors.centerIn: parent
+                    anchors.verticalCenterOffset: -12
+                    visible: view.tasks.length === 0
+                    spacing: 10
+                    Text {
+                        anchors.horizontalCenter: parent.horizontalCenter
+                        text: qsTr("把 GIF 拖进来，或点右上角添加")
+                        color: Theme.textDim
+                        font.family: Theme.fontUI
+                        font.pixelSize: 13
+                    }
+                    Text {
+                        anchors.horizontalCenter: parent.horizontalCenter
+                        text: qsTr("每行一个任务，右侧设循环次数，短 GIF 叠成足长视频")
+                        color: Theme.textFaint
+                        font.family: Theme.fontUI
+                        font.pixelSize: 11
+                    }
+                }
+            }
+
+            // ===== 任务清单（紧凑列表，点击行选中到预览台）=====
             Flickable {
                 id: taskFlick
                 Layout.fillWidth: true
-                Layout.fillHeight: true
+                Layout.preferredHeight: tasks.length > 0 ? 168 : 0
                 contentWidth: width
                 contentHeight: taskCol.implicitHeight
                 clip: true
@@ -224,36 +351,7 @@ Item {
                 ColumnLayout {
                     id: taskCol
                     width: taskFlick.width
-                    // 撑满视口让空态垂直居中；内容多时按实际高度滚动
-                    height: Math.max(taskFlick.height, taskCol.implicitHeight)
                     spacing: 0
-
-                    // 空态：邀请（Item+anchors.centerIn 双居中，骨架已验证的做法）
-                    Item {
-                        Layout.fillWidth: true
-                        Layout.fillHeight: true
-                        visible: view.tasks.length === 0
-
-                        Column {
-                            anchors.centerIn: parent
-                            anchors.verticalCenterOffset: -12
-                            spacing: 10
-                            Text {
-                                anchors.horizontalCenter: parent.horizontalCenter
-                                text: qsTr("把 GIF 拖进来，或点右上角添加")
-                                color: Theme.textDim
-                                font.family: Theme.fontUI
-                                font.pixelSize: 13
-                            }
-                            Text {
-                                anchors.horizontalCenter: parent.horizontalCenter
-                                text: qsTr("每行一个任务，右侧设循环次数，短 GIF 叠成足长视频")
-                                color: Theme.textFaint
-                                font.family: Theme.fontUI
-                                font.pixelSize: 11
-                            }
-                        }
-                    }
 
                     Repeater {
                         model: view.tasks
@@ -264,6 +362,24 @@ Item {
                             required property int index
                             Layout.fillWidth: true
                             spacing: 0
+
+                            // 选中态背景 + 整行点击选中（预览台联动）
+                            Rectangle {
+                                anchors.fill: parent
+                                color: view.selectedIndex === taskRow.index ? Theme.panelHover : "transparent"
+                            }
+                            MouseArea {
+                                anchors.fill: parent
+                                cursorShape: Qt.PointingHandCursor
+                                onClicked: view.selectedIndex = taskRow.index
+                            }
+                            Rectangle {
+                                anchors.left: parent.left
+                                anchors.top: parent.top
+                                anchors.bottom: parent.bottom
+                                width: 3
+                                color: view.selectedIndex === taskRow.index ? Theme.seal : "transparent"
+                            }
 
                             RowLayout {
                                 Layout.fillWidth: true

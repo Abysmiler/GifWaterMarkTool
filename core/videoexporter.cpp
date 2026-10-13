@@ -20,6 +20,35 @@ QVariantMap VideoExporter::probeGif(const QString &gifPath) const
     return m;
 }
 
+QString VideoExporter::extractPreview(const QString &gifPath)
+{
+    if (m_previewCache.contains(gifPath))
+        return m_previewCache.value(gifPath);
+    if (gifPath.isEmpty() || !QFileInfo::exists(gifPath))
+        return QString();
+    const QString ff = paths::ffmpegExecutable();
+    if (!QFileInfo::exists(ff))
+        return QString();
+
+    const QString tmp = QDir::tempPath()
+        + QStringLiteral("/gwm_vprev_%1.png").arg(QString::number(qlonglong(qHash(gifPath)), 16));
+    if (!QFileInfo::exists(tmp)) {
+        QProcess proc;
+        proc.setProgram(ff);
+        proc.setArguments({ QStringLiteral("-y"),
+                            QStringLiteral("-i"), gifPath,
+                            QStringLiteral("-vframes"), QStringLiteral("1"),
+                            tmp });
+        proc.start();
+        if (!proc.waitForFinished(5000) && proc.state() != QProcess::NotRunning)
+            return QString();
+    }
+    const QString url = QFileInfo::exists(tmp) ? QUrl::fromLocalFile(tmp).toString() : QString();
+    if (!url.isEmpty())
+        m_previewCache.insert(gifPath, url);
+    return url;
+}
+
 void VideoExporter::exportOne(const QString &gifPath, int loops,
                               int outWidth, int outHeight, int fps, int crf,
                               const QString &outPath)

@@ -100,8 +100,9 @@ Item {
             width: info.width,
             height: info.height,
             previewUrl: "",
-            // 默认循环：向 2s 靠近且不超过（floor(2s/源时长) 向下取整，如 1s→×2、0.64s→×3≈1.92s）；源时长未知则 ×1
-            loops: info.durationMs > 0 ? Math.max(1, Math.floor(2000 / info.durationMs)) : 1,
+            // 默认循环：选使成片最接近 2s 的循环数（round(2s/源时长)，≥1；
+            // 如 1s→×2、0.64s→×3≈1.92s、1.8s→×1 不硬凑）；源时长未知则 ×1
+            loops: info.durationMs > 0 ? Math.max(1, Math.round(2000 / info.durationMs)) : 1,
             status: "wait", err: "", outPath: "", progress: 0
         }
         tasks.push(task)

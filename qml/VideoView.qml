@@ -100,8 +100,8 @@ Item {
             width: info.width,
             height: info.height,
             previewUrl: "",
-            // 默认补足 ≈10 秒；源时长未知则 ×1
-            loops: info.durationMs > 0 ? Math.max(1, Math.round(10000 / info.durationMs)) : 1,
+            // 默认循环：成片 2~3 秒（floor 向下取整，如 1s→×2、0.64s→×4≈2.6s）；源时长未知则 ×1
+            loops: info.durationMs > 0 ? Math.max(1, Math.floor(2990 / info.durationMs)) : 1,
             status: "wait", err: "", outPath: "", progress: 0
         }
         tasks.push(task)

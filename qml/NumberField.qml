@@ -14,7 +14,7 @@ Rectangle {
 
     implicitHeight: 32
     implicitWidth: 120
-    radius: Theme.radiusSm
+    radius: height / 2        // 胶囊形（两端半圆），与整体椭圆风格一致
     color: Theme.panelHi
     border.width: 1
     border.color: input.activeFocus ? Theme.seal : Theme.line
@@ -25,6 +25,7 @@ Rectangle {
 
     // − 步进
     StepBtn { id: minus; sign: "−"; anchors.left: parent.left; onTapped: root.bump(-1) }
+
 
     Text {
         visible: root.prefix !== ""
@@ -72,6 +73,7 @@ Rectangle {
         property string sign: ""
         signal tapped()
         width: 26; height: parent.height
+        radius: width / 2          // 圆形悬停高亮（胶囊端部）
         anchors.verticalCenter: parent.verticalCenter
         color: sm.containsMouse ? Theme.panelHover : "transparent"
         Text {

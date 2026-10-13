@@ -477,6 +477,7 @@ Item {
                                     border.width: 1
                                     border.color: view.selectedIndex === index ? Theme.seal : Theme.line
                                     Behavior on border.color { ColorAnimation { duration: Theme.quick } }
+                                    Behavior on color { ColorAnimation { duration: Theme.quick } }
 
                                     // 选中左竖条
                                     Rectangle {
@@ -485,6 +486,16 @@ Item {
                                         anchors.bottom: parent.bottom
                                         width: 3
                                         color: view.selectedIndex === frame.index ? Theme.seal : "transparent"
+                                    }
+
+                                    // 整格点击选中 + 悬停（必须先于可交互子项声明，
+                                    // 后声明者在上层会拦截 ±/输入框/删除的鼠标事件）
+                                    MouseArea {
+                                        id: failMa
+                                        anchors.fill: parent
+                                        hoverEnabled: true
+                                        cursorShape: Qt.PointingHandCursor
+                                        onClicked: view.selectedIndex = frame.index
                                     }
 
                                     // 缩略（Fit 完整显示）
@@ -603,15 +614,6 @@ Item {
                                     ToolTip.delay: 200
                                     ToolTip.text: frame.modelData.err || ""
 
-                                    // 整格点击选中 + 悬停
-                                    MouseArea {
-                                        id: failMa
-                                        anchors.fill: parent
-                                        hoverEnabled: true
-                                        cursorShape: Qt.PointingHandCursor
-                                        onClicked: view.selectedIndex = frame.index
-                                    }
-
                                     // 删除（悬停右上角）
                                     Rectangle {
                                         anchors.top: parent.top
@@ -682,6 +684,13 @@ Item {
         width: 300
         padding: 16
         modal: false
+        enter: Transition {
+            NumberAnimation { property: "opacity"; from: 0; to: 1; duration: Theme.quick }
+            NumberAnimation { property: "scale"; from: 0.92; to: 1; duration: Theme.quick; easing.type: Easing.OutCubic }
+        }
+        exit: Transition {
+            NumberAnimation { property: "opacity"; to: 0; duration: 100 }
+        }
         closePolicy: Popup.CloseOnEscape | Popup.CloseOnPressOutside
         background: Rectangle { radius: Theme.radius; color: Theme.panel; border.width: 1; border.color: Theme.line }
         contentItem: ColumnLayout {
@@ -867,6 +876,13 @@ Item {
         width: 300
         padding: 16
         modal: false
+        enter: Transition {
+            NumberAnimation { property: "opacity"; from: 0; to: 1; duration: Theme.quick }
+            NumberAnimation { property: "scale"; from: 0.92; to: 1; duration: Theme.quick; easing.type: Easing.OutCubic }
+        }
+        exit: Transition {
+            NumberAnimation { property: "opacity"; to: 0; duration: 100 }
+        }
         closePolicy: Popup.CloseOnEscape | Popup.CloseOnPressOutside
         background: Rectangle { radius: Theme.radius; color: Theme.panel; border.width: 1; border.color: Theme.line }
         contentItem: ColumnLayout {
@@ -887,6 +903,13 @@ Item {
         width: 300
         padding: 16
         modal: false
+        enter: Transition {
+            NumberAnimation { property: "opacity"; from: 0; to: 1; duration: Theme.quick }
+            NumberAnimation { property: "scale"; from: 0.92; to: 1; duration: Theme.quick; easing.type: Easing.OutCubic }
+        }
+        exit: Transition {
+            NumberAnimation { property: "opacity"; to: 0; duration: 100 }
+        }
         closePolicy: Popup.CloseOnEscape | Popup.CloseOnPressOutside
         background: Rectangle { radius: Theme.radius; color: Theme.panel; border.width: 1; border.color: Theme.line }
         contentItem: ColumnLayout {

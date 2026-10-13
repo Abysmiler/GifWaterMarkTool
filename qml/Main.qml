@@ -20,7 +20,7 @@ ApplicationWindow {
     readonly property int inspW: 344
     readonly property int statusH: 36
 
-    // ---- 模式：0=水印工作台 1=转视频工作台 ----
+    // ---- 模式：0=水印工作台 1=转视频工作台 2=重命名工作台 ----
     property int appMode: 0
 
     // ---- 共享水印参数 ----
@@ -472,8 +472,8 @@ ApplicationWindow {
 
                 // 模式切换：水印 / 转视频
                 Segmented {
-                    implicitWidth: 170
-                    model: [qsTr("水印"), qsTr("转视频")]
+                    implicitWidth: 250
+                    model: [qsTr("水印"), qsTr("转视频"), qsTr("重命名")]
                     currentIndex: window.appMode
                     onActivated: function(i) { window.appMode = i }
                 }
@@ -517,12 +517,6 @@ ApplicationWindow {
 
                 Item { Layout.fillWidth: true }
 
-                AppButton {
-                    visible: window.appMode === 0
-                    text: qsTr("重命名")
-                    kind: "ghost"
-                    onClicked: renameDlg.open()
-                }
                 AppButton {
                     text: qsTr("设置")
                     kind: "ghost"
@@ -746,9 +740,16 @@ ApplicationWindow {
             onRememberOutFolderToggled: function(v) { prefs.rememberOutFolder = v }
         }
 
-        // ===== 批量重命名弹窗 =====
-        RenameDialog {
-            id: renameDlg
+        // ===== 重命名工作台（挂在命令条下方）=====
+        Item {
+            visible: window.appMode === 2
+            anchors.left: parent.left
+            anchors.right: parent.right
+            anchors.top: stripGlass.bottom
+            anchors.topMargin: window.m
+            anchors.bottom: parent.bottom
+
+            RenameView { anchors.fill: parent }
         }
 
         // ===== 导出结果面板（批量存在失败时弹出；列出失败原因并支持只重试失败项）=====

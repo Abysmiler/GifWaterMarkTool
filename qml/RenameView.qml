@@ -6,14 +6,12 @@ import QtQuick.Effects
 import QtCore
 import GifWaterMarkTool
 
-// 批量重命名弹窗 —— 「校对单」：顶部大等宽读数（将改名/已符合），
+// 重命名工作台 —— 「校对单」：顶部大等宽读数（将改名/已符合），
 // 朱砂批注线贯通预览清单，清单只列「旧名 → 新名」的变换本身；
 // 右侧无框规则栏靠发丝线分隔。内部开放表面，不套内盒。
 Item {
-    id: dlg
+    id: view
     anchors.fill: parent
-    visible: false
-    z: 100
 
     property var folders: []        // 累加选择的文件夹
     property var items: []          // preview 结果 [{path, dir, oldName, newName, changed, error}]
@@ -22,32 +20,6 @@ Item {
 
     readonly property var changedItems: items.filter(function(it) { return it.changed })
     readonly property int failCount: items.filter(function(it) { return it.error }).length
-
-    signal closed()
-
-    function open() {
-        panel.x = (dlg.width - panel.width) / 2
-        panel.y = (dlg.height - panel.height) / 2
-        dlg.visible = true
-        repreview()
-    }
-    function close() { dlg.visible = false; dlg.closed() }
-    function _clamp() {
-        if (!dlg.visible) return
-        panel.x = Math.max(0, Math.min(panel.x, dlg.width - panel.width))
-        panel.y = Math.max(0, Math.min(panel.y, dlg.height - panel.height))
-    }
-    onWidthChanged: _clamp()
-    onHeightChanged: _clamp()
-
-    Shortcut { sequences: ["Esc"]; onActivated: dlg.close() }
-
-    // 遮罩只拦截点击、不点外关闭：重命名是持续性工作，
-    // 关闭走 × / 关闭按钮 / Esc（与导出结果面板同设计）
-    Item {
-        anchors.fill: parent
-        MouseArea { anchors.fill: parent }
-    }
 
     function repreview() {
         statusText = ""
@@ -90,7 +62,7 @@ Item {
         stripCopySuffix: rnSettings.stripCopySuffix
         gifOnly: rnSettings.gifOnly
         recursive: rnSettings.recursive
-        customPatterns: dlg.customPatterns
+        customPatterns: view.customPatterns
     }
 
     Settings {
@@ -129,52 +101,33 @@ Item {
         try { return decodeURIComponent(s) } catch (e) { return s }
     }
 
+    // 台面底（独立背景层供玻璃采样）
     Item {
-        id: panel
-        width: Math.min(780, parent.width - 48)
-        height: Math.min(560, parent.height - 64)
-        opacity: dlg.visible ? 1.0 : 0.0
-        scale: dlg.visible ? 1.0 : 0.97
-        Behavior on opacity { NumberAnimation { duration: Theme.slide } }
-        Behavior on scale { NumberAnimation { duration: Theme.slide; easing.type: Easing.OutCubic } }
+        id: bgLayer
+        anchors.fill: parent
+        Rectangle {
+            anchors.fill: parent
+            gradient: Gradient {
+                GradientStop { position: 0.0; color: Theme.groundTop }
+                GradientStop { position: 0.55; color: Theme.groundMid }
+                GradientStop { position: 1.0; color: Theme.groundBot }
+            }
+        }
+    }
 
-        Rectangle {
-            id: panelShadow
-            anchors.fill: parent
-            radius: 16; color: "#000000"
-            visible: false; layer.enabled: true
-        }
-        MultiEffect {
-            anchors.fill: parent
-            source: panelShadow
-            blurEnabled: true; blur: 1.0; blurMax: 32
-            opacity: 0.18
-            transform: Translate { y: 7 }
-        }
-        Rectangle {
-            anchors.fill: parent
-            radius: 16
-            color: Theme.panel
-            border.width: 1; border.color: Theme.line
-        }
+    GlassPanel {
+        id: panel
+        stageItem: bgLayer
+        anchors.fill: parent
 
         ColumnLayout {
             anchors.fill: parent
             spacing: 0
 
-            // ===== 标题栏（可拖动）=====
+            // ===== 标题栏 =====
             Item {
                 Layout.fillWidth: true
                 Layout.preferredHeight: 52
-                MouseArea {
-                    anchors.fill: parent
-                    drag.target: panel
-                    drag.axis: Drag.XAndYAxis
-                    drag.minimumX: 0
-                    drag.maximumX: Math.max(0, dlg.width - panel.width)
-                    drag.minimumY: 0
-                    drag.maximumY: Math.max(0, dlg.height - panel.height)
-                }
                 RowLayout {
                     anchors.fill: parent
                     anchors.leftMargin: 16; anchors.rightMargin: 8
@@ -188,17 +141,11 @@ Item {
                         Layout.fillWidth: true
                     }
                     Text {
-                        visible: dlg.folders.length > 0
-                        text: dlg.folders.length + qsTr(" 个文件夹")
+                        visible: view.folders.length > 0
+                        text: view.folders.length + qsTr(" 个文件夹")
                         color: Theme.textFaint
                         font.family: Theme.fontMono
                         font.pixelSize: 11
-                    }
-                    AppButton {
-                        text: "×"
-                        kind: "ghost"
-                        implicitHeight: 32
-                        onClicked: dlg.close()
                     }
                 }
                 Rectangle { anchors.bottom: parent.bottom; width: parent.width; height: 1; color: Theme.lineSoft }
@@ -218,7 +165,7 @@ Item {
                     spacing: 6
 
                     Repeater {
-                        model: dlg.folders
+                        model: view.folders
                         Rectangle {
                             id: folderChip
                             required property string modelData
@@ -263,7 +210,7 @@ Item {
                                     anchors.fill: parent
                                     hoverEnabled: true
                                     cursorShape: Qt.PointingHandCursor
-                                    onClicked: dlg.removeFolder(folderChip.index)
+                                    onClicked: view.removeFolder(folderChip.index)
                                 }
                             }
                             ToolTip.visible: chipHover.containsMouse
@@ -324,8 +271,8 @@ Item {
                             RowLayout {
                                 spacing: 7
                                 Text {
-                                    text: dlg.changedItems.length
-                                    color: dlg.changedItems.length > 0 ? Theme.jade : Theme.textFaint
+                                    text: view.changedItems.length
+                                    color: view.changedItems.length > 0 ? Theme.jade : Theme.textFaint
                                     font.family: Theme.fontMono
                                     font.pixelSize: 26; font.bold: true
                                 }
@@ -339,9 +286,9 @@ Item {
                             }
                             RowLayout {
                                 spacing: 7
-                                visible: dlg.items.length > dlg.changedItems.length
+                                visible: view.items.length > view.changedItems.length
                                 Text {
-                                    text: dlg.items.length - dlg.changedItems.length
+                                    text: view.items.length - view.changedItems.length
                                     color: Theme.textFaint
                                     font.family: Theme.fontMono
                                     font.pixelSize: 26; font.bold: true
@@ -356,9 +303,9 @@ Item {
                             }
                             RowLayout {
                                 spacing: 7
-                                visible: dlg.failCount > 0
+                                visible: view.failCount > 0
                                 Text {
-                                    text: dlg.failCount
+                                    text: view.failCount
                                     color: Theme.seal
                                     font.family: Theme.fontMono
                                     font.pixelSize: 26; font.bold: true
@@ -396,7 +343,7 @@ Item {
                                 Item {
                                     Layout.fillWidth: true
                                     Layout.fillHeight: true
-                                    visible: dlg.folders.length === 0
+                                    visible: view.folders.length === 0
 
                                     Column {
                                         anchors.centerIn: parent
@@ -431,7 +378,7 @@ Item {
                                 Item {
                                     Layout.fillWidth: true
                                     Layout.fillHeight: true
-                                    visible: dlg.folders.length > 0 && dlg.items.length === dlg.changedItems.length
+                                    visible: view.folders.length > 0 && view.items.length === view.changedItems.length
 
                                     Text {
                                         anchors.centerIn: parent
@@ -447,7 +394,7 @@ Item {
                                 Item {
                                     Layout.fillWidth: true
                                     Layout.fillHeight: true
-                                    visible: dlg.folders.length > 0 && dlg.items.length === 0
+                                    visible: view.folders.length > 0 && view.items.length === 0
 
                                     Text {
                                         anchors.centerIn: parent
@@ -464,7 +411,7 @@ Item {
 
                                 // 变换行：旧名（暗） → 新名（玉绿）
                                 Repeater {
-                                    model: dlg.changedItems
+                                    model: view.changedItems
 
                                     ColumnLayout {
                                         id: proofRow
@@ -571,33 +518,33 @@ Item {
                                 text: qsTr("时间戳")
                                 caption: qsTr("2026-06-26-20-07-33 与 14 位数字")
                                 checked: rnSettings.stripTimestamp
-                                onToggled: function(v) { rnSettings.stripTimestamp = v; dlg.repreview() }
+                                onToggled: function(v) { rnSettings.stripTimestamp = v; view.repreview() }
                             }
                             SwitchRow {
                                 Layout.fillWidth: true
                                 text: qsTr("括号")
                                 caption: qsTr("只删括号，保留内容")
                                 checked: rnSettings.stripBrackets
-                                onToggled: function(v) { rnSettings.stripBrackets = v; dlg.repreview() }
+                                onToggled: function(v) { rnSettings.stripBrackets = v; view.repreview() }
                             }
                             SwitchRow {
                                 Layout.fillWidth: true
                                 text: qsTr("副本后缀")
                                 caption: qsTr("段尾「空格+数字」，如「哭 1」")
                                 checked: rnSettings.stripCopySuffix
-                                onToggled: function(v) { rnSettings.stripCopySuffix = v; dlg.repreview() }
+                                onToggled: function(v) { rnSettings.stripCopySuffix = v; view.repreview() }
                             }
                             SwitchRow {
                                 Layout.fillWidth: true
                                 text: qsTr("仅 GIF")
                                 checked: rnSettings.gifOnly
-                                onToggled: function(v) { rnSettings.gifOnly = v; dlg.repreview() }
+                                onToggled: function(v) { rnSettings.gifOnly = v; view.repreview() }
                             }
                             SwitchRow {
                                 Layout.fillWidth: true
                                 text: qsTr("含子文件夹")
                                 checked: rnSettings.recursive
-                                onToggled: function(v) { rnSettings.recursive = v; dlg.repreview() }
+                                onToggled: function(v) { rnSettings.recursive = v; view.repreview() }
                             }
 
                             Text {
@@ -649,10 +596,10 @@ Item {
                                             hoverEnabled: true
                                             cursorShape: Qt.PointingHandCursor
                                             onClicked: {
-                                                dlg.customPatterns.push(exChip.modelData.re)
-                                                dlg.customPatterns = dlg.customPatterns.slice()
-                                                dlg.savePatterns()
-                                                dlg.repreview()
+                                                view.customPatterns.push(exChip.modelData.re)
+                                                view.customPatterns = view.customPatterns.slice()
+                                                view.savePatterns()
+                                                view.repreview()
                                             }
                                         }
                                         ToolTip.visible: exMa.containsMouse
@@ -663,7 +610,7 @@ Item {
                             }
 
                             Repeater {
-                                model: dlg.customPatterns
+                                model: view.customPatterns
                                 RowLayout {
                                     id: ptnRow
                                     required property string modelData
@@ -686,9 +633,9 @@ Item {
                                             border.color: renamer.isPatternValid(ptnField.text) ? Theme.line : Theme.seal
                                         }
                                         onTextEdited: {
-                                            dlg.customPatterns[ptnRow.index] = text
-                                            dlg.savePatterns()
-                                            dlg.repreview()
+                                            view.customPatterns[ptnRow.index] = text
+                                            view.savePatterns()
+                                            view.repreview()
                                         }
                                     }
                                     Rectangle {
@@ -701,10 +648,10 @@ Item {
                                             hoverEnabled: true
                                             cursorShape: Qt.PointingHandCursor
                                             onClicked: {
-                                                dlg.customPatterns.splice(ptnRow.index, 1)
-                                                dlg.customPatterns = dlg.customPatterns.slice()
-                                                dlg.savePatterns()
-                                                dlg.repreview()
+                                                view.customPatterns.splice(ptnRow.index, 1)
+                                                view.customPatterns = view.customPatterns.slice()
+                                                view.savePatterns()
+                                                view.repreview()
                                             }
                                         }
                                     }
@@ -717,8 +664,8 @@ Item {
                                 implicitHeight: 28
                                 leftPadding: 14; rightPadding: 14
                                 onClicked: {
-                                    dlg.customPatterns.push("")
-                                    dlg.customPatterns = dlg.customPatterns.slice()
+                                    view.customPatterns.push("")
+                                    view.customPatterns = view.customPatterns.slice()
                                 }
                             }
                             Item { Layout.fillHeight: true; Layout.minimumHeight: 8 }
@@ -737,31 +684,24 @@ Item {
                     anchors.leftMargin: 16; anchors.rightMargin: 14
                     spacing: 10
                     Text {
-                        text: dlg.statusText
-                        visible: dlg.statusText !== ""
-                        color: dlg.failCount > 0 ? Theme.seal : Theme.textDim
+                        text: view.statusText
+                        visible: view.statusText !== ""
+                        color: view.failCount > 0 ? Theme.seal : Theme.textDim
                         font.family: Theme.fontMono
                         font.pixelSize: 11
                         Layout.fillWidth: true
                         elide: Text.ElideRight
                     }
-                    Item { Layout.fillWidth: true; visible: dlg.statusText === "" }
+                    Item { Layout.fillWidth: true; visible: view.statusText === "" }
                     AppButton {
-                        text: dlg.changedItems.length > 0
-                              ? qsTr("执行重命名 %1").arg(dlg.changedItems.length)
+                        text: view.changedItems.length > 0
+                              ? qsTr("执行重命名 %1").arg(view.changedItems.length)
                               : qsTr("执行重命名")
                         kind: "primary"
                         implicitHeight: 34
                         leftPadding: 18; rightPadding: 18
-                        enabled: dlg.changedItems.length > 0
-                        onClicked: dlg.doApply()
-                    }
-                    AppButton {
-                        text: qsTr("关闭")
-                        kind: "ghost"
-                        implicitHeight: 34
-                        leftPadding: 18; rightPadding: 18
-                        onClicked: dlg.close()
+                        enabled: view.changedItems.length > 0
+                        onClicked: view.doApply()
                     }
                 }
             }

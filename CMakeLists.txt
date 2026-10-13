@@ -56,7 +56,7 @@ qt_add_qml_module(GifWaterMarkTool
         qml/Select.qml
         qml/SwitchRow.qml
         qml/SettingsDialog.qml
-        qml/RenameDialog.qml
+        qml/RenameView.qml
         qml/VideoView.qml
 )
 

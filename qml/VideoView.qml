@@ -46,6 +46,7 @@ Item {
     property int current: -1        // 正在导出的任务下标；-1 空闲
     property bool running: false
     property int selectedIndex: -1
+    property int currentProgress: 0 // 当前导出段进度（独立属性，避免 tick 触发清单全量重建）
 
     readonly property var activeTask: {
         if (tasks.length === 0) return null
@@ -56,9 +57,7 @@ Item {
     VideoExporter {
         id: exporter
         // 回调内一律 view. 前缀访问视图状态：裸名会解析到 exporter 自身属性（如只读 running）
-        onProgressChanged: if (view.current >= 0 && view.current < view.tasks.length) {
-            var tp = view.tasks[view.current]; tp.progress = exporter.progress; view.tasks = view.tasks.slice()
-        }
+        onProgressChanged: view.currentProgress = exporter.progress
         onFinished: function(ok, status, path, err) {
             if (view.current < 0 || view.current >= view.tasks.length) { view.running = false; return }
             var t = view.tasks[view.current]
@@ -93,13 +92,15 @@ Item {
         for (var i = 0; i < tasks.length; i++)
             if (tasks[i].path === path && tasks[i].status === "wait") { toast.show(qsTr("该 GIF 已在清单里"), false, ""); return }
         var info = exporter.probeGif(path)
+        // 抽帧先于入列，任务一次性构造完成（避免二次 slice 触发清单重建闪烁）
+        var previewUrl = exporter.extractPreview(path)
         var task = {
             path: path,
             name: path.replace(/^.*[\\/]/, ""),
             durationMs: info.durationMs,
             width: info.width,
             height: info.height,
-            previewUrl: "",
+            previewUrl: previewUrl,
             sourceUrl: encodeURI("file:///" + path.replace(/\\/g, "/")),
             // 默认循环：选使成片最接近 2s 的循环数（round(2s/源时长)，≥1；
             // 如 1s→×2、0.64s→×3≈1.92s、1.8s→×1 不硬凑）；源时长未知则 ×1
@@ -109,8 +110,6 @@ Item {
         tasks.push(task)
         tasks = tasks.slice()
         selectedIndex = tasks.length - 1
-        task.previewUrl = exporter.extractPreview(path)
-        tasks = tasks.slice()
     }
 
     function removeTask(i) {
@@ -518,7 +517,6 @@ Item {
                                             source: frame.modelData.previewUrl
                                             fillMode: Image.PreserveAspectFit
                                             mipmap: true
-                                            cache: false
                                             asynchronous: true
                                             opacity: frame.modelData.status === "fail" ? 0.4 : 1.0
                                         }
@@ -527,7 +525,7 @@ Item {
                                             anchors.left: parent.left
                                             anchors.bottom: parent.bottom
                                             height: 3
-                                            width: parent.width * (frame.modelData.progress || 0) / 100
+                                            width: parent.width * (view.current === frame.index ? view.currentProgress : 0) / 100
                                             color: Theme.seal
                                             visible: frame.modelData.status === "run"
                                         }

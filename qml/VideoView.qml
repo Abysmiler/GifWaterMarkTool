@@ -194,7 +194,194 @@ Item {
             Layout.fillHeight: true
             spacing: 14
 
-            // ============ 左：胶片清单（媒体池）============
+            // ============ 左：看片台 ============
+            GlassPanel {
+                id: stageGlass
+                stageItem: bgLayer
+                Layout.fillWidth: true
+                Layout.fillHeight: true
+
+                ColumnLayout {
+                    anchors.fill: parent
+                    spacing: 0
+
+                    // 头：眉标 + 选中段名 + 读数（尺寸 · 源时长 → 成片时长）
+                    Item {
+                        Layout.fillWidth: true
+                        Layout.preferredHeight: 42
+                        RowLayout {
+                            anchors.fill: parent
+                            anchors.leftMargin: 16; anchors.rightMargin: 16
+                            spacing: 10
+                            Rectangle { width: 3; height: 12; radius: 1.5; color: Theme.seal }
+                            Text {
+                                text: qsTr("画面")
+                                color: Theme.text
+                                font.family: Theme.fontUI
+                                font.pixelSize: 13; font.bold: true
+                            }
+                            Text {
+                                id: fileNameText
+                                Layout.fillWidth: true
+                                text: view.activeTask ? view.activeTask.name : ""
+                                visible: view.activeTask !== null
+                                color: Theme.textDim
+                                font.family: Theme.fontMono
+                                font.pixelSize: 11
+                                elide: Text.ElideMiddle
+                            }
+                            // 读数胶囊（Layout 按 implicitWidth 分配宽度，勿用 width 绑定——会被 Layout 覆盖）
+                            Rectangle {
+                                id: capsuleRect
+                                visible: view.activeTask !== null
+                                implicitWidth: Math.min(metaRow.implicitWidth + 20, 300)
+                                implicitHeight: 28
+                                radius: Theme.radiusSm
+                                color: Theme.panel
+                                border.width: 1; border.color: Theme.line
+                                RowLayout {
+                                    id: metaRow
+                                    anchors.centerIn: parent
+                                    width: Math.min(implicitWidth, capsuleRect.width - 12)
+                                    spacing: 8
+                                    Text {
+                                        text: view.activeTask && view.activeTask.width > 0
+                                              ? view.activeTask.width + "×" + view.activeTask.height : "—"
+                                        color: Theme.textDim
+                                        font.family: Theme.fontMono
+                                        font.pixelSize: 11
+                                    }
+                                    Rectangle { width: 1; height: 10; color: Theme.line }
+                                    Text {
+                                        Layout.maximumWidth: 70
+                                        text: view.activeTask ? view.fmtSec(view.activeTask.durationMs) : ""
+                                        color: Theme.textDim
+                                        font.family: Theme.fontMono
+                                        font.pixelSize: 11
+                                    }
+                                    Text { text: "→"; color: Theme.textFaint; font.family: Theme.fontMono; font.pixelSize: 11 }
+                                    Text {
+                                        Layout.maximumWidth: 70
+                                        text: view.activeTask
+                                              ? view.fmtSec(view.activeTask.durationMs > 0 ? view.activeTask.durationMs * view.activeTask.loops : -1)
+                                              : ""
+                                        color: Theme.jade
+                                        font.family: Theme.fontMono
+                                        font.pixelSize: 11; font.bold: true
+                                    }
+                                }
+                            }
+                            Text {
+                                visible: view.tasks.length > 1
+                                text: qsTr("第 %1 / %2 段")
+                                      .arg(view.selectedIndex >= 0 ? view.selectedIndex + 1 : view.tasks.length)
+                                      .arg(view.tasks.length)
+                                color: Theme.textFaint
+                                font.family: Theme.fontMono
+                                font.pixelSize: 10
+                            }
+                        }
+                        Rectangle { anchors.bottom: parent.bottom; width: parent.width; height: 1; color: Theme.lineSoft }
+                    }
+
+                    // 看片区：整片台面铺满（空白处是材质不是死白），相框卡悬浮其上
+                    Item {
+                        id: cardArea
+                        Layout.fillWidth: true
+                        Layout.fillHeight: true
+
+                        // 台面（发光渐变，水印同语言）
+                        Rectangle {
+                            id: stagePad
+                            anchors.fill: parent
+                            anchors.margins: 12
+                            radius: Theme.radiusSm
+                            color: Theme.stageBg
+                            border.width: 1; border.color: Theme.lineSoft
+                            Rectangle {
+                                anchors.fill: parent
+                                radius: parent.radius
+                                gradient: Gradient {
+                                    GradientStop { position: 0.0; color: Qt.rgba(1,1,1,0.35) }
+                                    GradientStop { position: 0.55; color: Qt.rgba(1,1,1,0.08) }
+                                    GradientStop { position: 1.0; color: Qt.rgba(1,1,1,0.0) }
+                                }
+                            }
+                        }
+
+                        property real srcW: view.activeTask && view.activeTask.width > 0 ? view.activeTask.width : 16
+                        property real srcH: view.activeTask && view.activeTask.height > 0 ? view.activeTask.height : 9
+                        property real maxW: stagePad.width - 56
+                        property real maxH: stagePad.height - 64
+                        property real fit: Math.min(maxW / srcW, maxH / srcH)
+
+                        // 柔投影
+                        Rectangle {
+                            anchors.horizontalCenter: stagePad.horizontalCenter
+                            anchors.verticalCenter: stagePad.verticalCenter
+                            anchors.verticalCenterOffset: 8
+                            width: frameCard.width; height: frameCard.height
+                            radius: frameCard.radius + 2
+                            color: Qt.rgba(0.19, 0.31, 0.37, 0.20)
+                            visible: frameCard.visible
+                        }
+
+                        // 相框卡
+                        Rectangle {
+                            id: frameCard
+                            anchors.horizontalCenter: stagePad.horizontalCenter
+                            anchors.verticalCenter: stagePad.verticalCenter
+                            width: Math.max(140, cardArea.srcW * cardArea.fit)
+                            height: Math.max(88, cardArea.srcH * cardArea.fit)
+                            radius: 6
+                            color: "#ffffff"
+                            border.width: 1; border.color: Theme.line
+                            clip: true
+                            visible: view.activeTask !== null
+
+                            Image {
+                                anchors.fill: parent
+                                anchors.margins: 8
+                                source: view.activeTask ? view.activeTask.previewUrl : ""
+                                fillMode: Image.PreserveAspectFit
+                                mipmap: true; cache: false; asynchronous: true
+                            }
+                        }
+
+                        // 空态：邀请
+                        Column {
+                            anchors.centerIn: stagePad
+                            anchors.verticalCenterOffset: -12
+                            visible: view.tasks.length === 0
+                            spacing: 10
+                            Text {
+                                anchors.horizontalCenter: parent.horizontalCenter
+                                text: qsTr("把 GIF 拖进来，或点右侧添加")
+                                color: Theme.textDim
+                                font.family: Theme.fontUI
+                                font.pixelSize: 13
+                            }
+                            Text {
+                                anchors.horizontalCenter: parent.horizontalCenter
+                                text: qsTr("同一 GIF 可叠多格、设不同循环，短 GIF 叠成足长视频")
+                                color: Theme.textFaint
+                                font.family: Theme.fontUI
+                                font.pixelSize: 11
+                            }
+                            AppButton {
+                                anchors.horizontalCenter: parent.horizontalCenter
+                                text: qsTr("+ 添加 GIF")
+                                kind: "primary"
+                                implicitHeight: 36
+                                leftPadding: 24; rightPadding: 24
+                                onClicked: addDialog.open()
+                            }
+                        }
+                    }
+                }
+            }
+
+            // ============ 右：转换清单（媒体池）===========
             GlassPanel {
                 id: listGlass
                 stageItem: bgLayer
@@ -484,194 +671,29 @@ Item {
                 }
             }
 
-            // ============ 右：看片台 ============
-            GlassPanel {
-                id: stageGlass
-                stageItem: bgLayer
+    }
+
+    // ---- 参数弹层（三份同构：主题面板底 + 单行 Segmented，选中即收起；定位于参数条上方）----
+    Popup {
+        id: resPopup
+        x: 16
+        y: view.height - implicitHeight - 92
+        width: 300
+        padding: 16
+        modal: false
+        closePolicy: Popup.CloseOnEscape | Popup.CloseOnPressOutside
+        background: Rectangle { radius: Theme.radius; color: Theme.panel; border.width: 1; border.color: Theme.line }
+        contentItem: ColumnLayout {
+            spacing: 10
+            Text { text: qsTr("分辨率"); color: Theme.textDim; font.family: Theme.fontUI; font.pixelSize: 11; font.bold: true }
+            Segmented {
                 Layout.fillWidth: true
-                Layout.fillHeight: true
-
-                ColumnLayout {
-                    anchors.fill: parent
-                    spacing: 0
-
-                    // 头：眉标 + 选中段名 + 读数（尺寸 · 源时长 → 成片时长）
-                    Item {
-                        Layout.fillWidth: true
-                        Layout.preferredHeight: 42
-                        RowLayout {
-                            anchors.fill: parent
-                            anchors.leftMargin: 16; anchors.rightMargin: 16
-                            spacing: 10
-                            Rectangle { width: 3; height: 12; radius: 1.5; color: Theme.seal }
-                            Text {
-                                text: qsTr("画面")
-                                color: Theme.text
-                                font.family: Theme.fontUI
-                                font.pixelSize: 13; font.bold: true
-                            }
-                            Text {
-                                id: fileNameText
-                                Layout.fillWidth: true
-                                text: view.activeTask ? view.activeTask.name : ""
-                                visible: view.activeTask !== null
-                                color: Theme.textDim
-                                font.family: Theme.fontMono
-                                font.pixelSize: 11
-                                elide: Text.ElideMiddle
-                            }
-                            // 读数胶囊（Layout 按 implicitWidth 分配宽度，勿用 width 绑定——会被 Layout 覆盖）
-                            Rectangle {
-                                id: capsuleRect
-                                visible: view.activeTask !== null
-                                implicitWidth: Math.min(metaRow.implicitWidth + 20, 300)
-                                implicitHeight: 28
-                                radius: Theme.radiusSm
-                                color: Theme.panel
-                                border.width: 1; border.color: Theme.line
-                                RowLayout {
-                                    id: metaRow
-                                    anchors.centerIn: parent
-                                    width: Math.min(implicitWidth, capsuleRect.width - 12)
-                                    spacing: 8
-                                    Text {
-                                        text: view.activeTask && view.activeTask.width > 0
-                                              ? view.activeTask.width + "×" + view.activeTask.height : "—"
-                                        color: Theme.textDim
-                                        font.family: Theme.fontMono
-                                        font.pixelSize: 11
-                                    }
-                                    Rectangle { width: 1; height: 10; color: Theme.line }
-                                    Text {
-                                        Layout.maximumWidth: 70
-                                        text: view.activeTask ? view.fmtSec(view.activeTask.durationMs) : ""
-                                        color: Theme.textDim
-                                        font.family: Theme.fontMono
-                                        font.pixelSize: 11
-                                    }
-                                    Text { text: "→"; color: Theme.textFaint; font.family: Theme.fontMono; font.pixelSize: 11 }
-                                    Text {
-                                        Layout.maximumWidth: 70
-                                        text: view.activeTask
-                                              ? view.fmtSec(view.activeTask.durationMs > 0 ? view.activeTask.durationMs * view.activeTask.loops : -1)
-                                              : ""
-                                        color: Theme.jade
-                                        font.family: Theme.fontMono
-                                        font.pixelSize: 11; font.bold: true
-                                    }
-                                }
-                            }
-                            Text {
-                                visible: view.tasks.length > 1
-                                text: qsTr("第 %1 / %2 段")
-                                      .arg(view.selectedIndex >= 0 ? view.selectedIndex + 1 : view.tasks.length)
-                                      .arg(view.tasks.length)
-                                color: Theme.textFaint
-                                font.family: Theme.fontMono
-                                font.pixelSize: 10
-                            }
-                        }
-                        Rectangle { anchors.bottom: parent.bottom; width: parent.width; height: 1; color: Theme.lineSoft }
-                    }
-
-                    // 看片区：整片台面铺满（空白处是材质不是死白），相框卡悬浮其上
-                    Item {
-                        id: cardArea
-                        Layout.fillWidth: true
-                        Layout.fillHeight: true
-
-                        // 台面（发光渐变，水印同语言）
-                        Rectangle {
-                            id: stagePad
-                            anchors.fill: parent
-                            anchors.margins: 12
-                            radius: Theme.radiusSm
-                            color: Theme.stageBg
-                            border.width: 1; border.color: Theme.lineSoft
-                            Rectangle {
-                                anchors.fill: parent
-                                radius: parent.radius
-                                gradient: Gradient {
-                                    GradientStop { position: 0.0; color: Qt.rgba(1,1,1,0.35) }
-                                    GradientStop { position: 0.55; color: Qt.rgba(1,1,1,0.08) }
-                                    GradientStop { position: 1.0; color: Qt.rgba(1,1,1,0.0) }
-                                }
-                            }
-                        }
-
-                        property real srcW: view.activeTask && view.activeTask.width > 0 ? view.activeTask.width : 16
-                        property real srcH: view.activeTask && view.activeTask.height > 0 ? view.activeTask.height : 9
-                        property real maxW: stagePad.width - 56
-                        property real maxH: stagePad.height - 64
-                        property real fit: Math.min(maxW / srcW, maxH / srcH)
-
-                        // 柔投影
-                        Rectangle {
-                            anchors.horizontalCenter: stagePad.horizontalCenter
-                            anchors.verticalCenter: stagePad.verticalCenter
-                            anchors.verticalCenterOffset: 8
-                            width: frameCard.width; height: frameCard.height
-                            radius: frameCard.radius + 2
-                            color: Qt.rgba(0.19, 0.31, 0.37, 0.20)
-                            visible: frameCard.visible
-                        }
-
-                        // 相框卡
-                        Rectangle {
-                            id: frameCard
-                            anchors.horizontalCenter: stagePad.horizontalCenter
-                            anchors.verticalCenter: stagePad.verticalCenter
-                            width: Math.max(140, cardArea.srcW * cardArea.fit)
-                            height: Math.max(88, cardArea.srcH * cardArea.fit)
-                            radius: 6
-                            color: "#ffffff"
-                            border.width: 1; border.color: Theme.line
-                            clip: true
-                            visible: view.activeTask !== null
-
-                            Image {
-                                anchors.fill: parent
-                                anchors.margins: 8
-                                source: view.activeTask ? view.activeTask.previewUrl : ""
-                                fillMode: Image.PreserveAspectFit
-                                mipmap: true; cache: false; asynchronous: true
-                            }
-                        }
-
-                        // 空态：邀请
-                        Column {
-                            anchors.centerIn: stagePad
-                            anchors.verticalCenterOffset: -12
-                            visible: view.tasks.length === 0
-                            spacing: 10
-                            Text {
-                                anchors.horizontalCenter: parent.horizontalCenter
-                                text: qsTr("把 GIF 拖进来，或点左侧添加")
-                                color: Theme.textDim
-                                font.family: Theme.fontUI
-                                font.pixelSize: 13
-                            }
-                            Text {
-                                anchors.horizontalCenter: parent.horizontalCenter
-                                text: qsTr("同一 GIF 可叠多格、设不同循环，短 GIF 叠成足长视频")
-                                color: Theme.textFaint
-                                font.family: Theme.fontUI
-                                font.pixelSize: 11
-                            }
-                            AppButton {
-                                anchors.horizontalCenter: parent.horizontalCenter
-                                text: qsTr("+ 添加 GIF")
-                                kind: "primary"
-                                implicitHeight: 36
-                                leftPadding: 24; rightPadding: 24
-                                onClicked: addDialog.open()
-                            }
-                        }
-                    }
-                }
+                model: view.resPresets.map(function(r) { return r.label })
+                currentIndex: vsSettings.resIndex
+                onActivated: function(i) { vsSettings.resIndex = i; resPopup.close() }
             }
         }
-
+        }
         // ============ 参数条 + 导出（玻璃；全部控件统一 36px 高）============
         GlassPanel {
             id: specGlass
@@ -834,28 +856,6 @@ Item {
                 anchors.leftMargin: 12
                 opacity: 0
                 scale: 1.0
-            }
-        }
-    }
-
-    // ---- 参数弹层（三份同构：主题面板底 + 单行 Segmented，选中即收起；定位于参数条上方）----
-    Popup {
-        id: resPopup
-        x: 16
-        y: view.height - implicitHeight - 92
-        width: 300
-        padding: 16
-        modal: false
-        closePolicy: Popup.CloseOnEscape | Popup.CloseOnPressOutside
-        background: Rectangle { radius: Theme.radius; color: Theme.panel; border.width: 1; border.color: Theme.line }
-        contentItem: ColumnLayout {
-            spacing: 10
-            Text { text: qsTr("分辨率"); color: Theme.textDim; font.family: Theme.fontUI; font.pixelSize: 11; font.bold: true }
-            Segmented {
-                Layout.fillWidth: true
-                model: view.resPresets.map(function(r) { return r.label })
-                currentIndex: vsSettings.resIndex
-                onActivated: function(i) { vsSettings.resIndex = i; resPopup.close() }
             }
         }
     }

@@ -12,13 +12,18 @@ Item {
     visible: false
     z: 100
 
-    property string appVersion: "v1.0.5"
+    property string appVersion: "v1.0.6"
     property bool rememberWatermark: false
     property bool deepCompress: true
     property bool rememberOutFolder: true
 
     // 更新日志（新到旧）。发版时在顶部补一条，与 appVersion 同步维护。
     property var changelog: [
+        { version: "v1.0.6", date: "2026-10-14", items: [
+            "新增「转视频」工作台：GIF 批量转 MP4，短 GIF 自动建议循环次数叠成足长视频",
+            "分辨率（默认 1080p）/ 帧率（默认 60fps）/ 画质可调，H.264 兼容微信与浏览器",
+            "逐段导出失败自动隔离并显示原因，支持重试；与水印工作台独立、互不影响",
+        ]},
         { version: "v1.0.5", date: "2026-09-20", items: [
             "新增批量重命名：清掉文件名里的时间戳、括号与副本后缀，支持自定义正则",
             "多文件夹累加处理，改名前逐条预览，失败自动保持原名并给出原因",

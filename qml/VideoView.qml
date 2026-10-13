@@ -100,6 +100,7 @@ Item {
             width: info.width,
             height: info.height,
             previewUrl: "",
+            sourceUrl: encodeURI("file:///" + path.replace(/\\/g, "/")),
             // 默认循环：选使成片最接近 2s 的循环数（round(2s/源时长)，≥1；
             // 如 1s→×2、0.64s→×3≈1.92s、1.8s→×1 不硬凑）；源时长未知则 ×1
             loops: info.durationMs > 0 ? Math.max(1, Math.round(2000 / info.durationMs)) : 1,
@@ -327,7 +328,7 @@ Item {
                             visible: frameCard.visible
                         }
 
-                        // 相框卡
+                        // 相框卡：AnimatedImage 循环播放原 GIF（非静态首帧）
                         Rectangle {
                             id: frameCard
                             anchors.horizontalCenter: stagePad.horizontalCenter
@@ -340,10 +341,11 @@ Item {
                             clip: true
                             visible: view.activeTask !== null
 
-                            Image {
+                            AnimatedImage {
                                 anchors.fill: parent
                                 anchors.margins: 8
-                                source: view.activeTask ? view.activeTask.previewUrl : ""
+                                source: view.activeTask ? view.activeTask.sourceUrl : ""
+                                playing: true
                                 fillMode: Image.PreserveAspectFit
                                 mipmap: true; cache: false; asynchronous: true
                             }
@@ -472,11 +474,12 @@ Item {
                                     Layout.rightMargin: 10
                                     implicitHeight: 208
                                     height: implicitHeight
-                                    radius: Theme.radiusSm
+                                    radius: 20
                                     color: view.selectedIndex === index ? Theme.panel : Theme.stageBg
                                     border.width: 1
-                                    border.color: view.selectedIndex === index ? Theme.seal : Theme.line
+                                    border.color: view.selectedIndex === index ? Qt.rgba(Theme.seal.r, Theme.seal.g, Theme.seal.b, 0.55) : Theme.line
                                     Behavior on border.color { ColorAnimation { duration: Theme.quick } }
+                                    Behavior on color { ColorAnimation { duration: Theme.quick } }
                                     Behavior on color { ColorAnimation { duration: Theme.quick } }
 
                                     // 选中左竖条

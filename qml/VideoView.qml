@@ -6,19 +6,17 @@ import QtQuick.Effects
 import QtCore
 import GifWaterMarkTool
 
-// 转视频工作台（自包含视图：自带台面底、玻璃面板、任务清单、输出设置与导出栏）。
-// 只依赖 core/VideoExporter（同样自包含），未来可整体抽出做独立软件。
-// 布局：左侧任务清单（每行：文件 + 源时长 × 循环 = 成片时长），右侧输出设置栏，底部导出栏。
+// 转视频工作台 —— 「剪辑台」：上预览、中胶片带（签名元素）、下参数条。
+// 自包含视图：自带背景层供玻璃采样；只依赖 core/VideoExporter，可整体抽出做独立软件。
 Item {
     id: view
     anchors.fill: parent
 
-    // ---- 任务模型：{path, name, durationMs, loops, status: wait|run|ok|fail, err, outPath} ----
+    // ---- 任务模型：{path, name, durationMs, width, height, previewUrl, loops, status, err, outPath, progress} ----
     property var tasks: []
     readonly property int  doneCount: tasks.filter(function(t){ return t.status === "ok" }).length
     readonly property int  failCount: tasks.filter(function(t){ return t.status === "fail" }).length
     readonly property int  pendingCount: tasks.filter(function(t){ return t.status === "wait" }).length
-    // 全部任务成片总时长（秒，未知源时长不计）
     readonly property real totalOutSec: tasks.reduce(function(acc, t) {
         return acc + (t.durationMs > 0 ? t.durationMs * t.loops / 1000 : 0)
     }, 0)
@@ -32,7 +30,8 @@ Item {
         { label: qsTr("原始"), w: 0, h: 0 },   // 不缩放，仅取偶
     ]
     readonly property var fpsOptions: [24, 30, 60]
-    readonly property var crfOptions: [18, 20, 23]   // 最高 / 均衡 / 较小
+    readonly property var qualityLabels: [qsTr("最高"), qsTr("均衡"), qsTr("较小")]
+    readonly property var crfOptions: [18, 20, 23]
 
     Settings {
         id: vsSettings
@@ -41,6 +40,17 @@ Item {
         property int fpsIndex: 2        // 默认 60
         property int qualityIndex: 1    // 默认 均衡
         property string outFolder: ""
+    }
+
+    // ---- 队列调度 ----
+    property int current: -1        // 正在导出的任务下标；-1 空闲
+    property bool running: false
+    property int selectedIndex: -1
+
+    readonly property var activeTask: {
+        if (tasks.length === 0) return null
+        var i = selectedIndex >= 0 && selectedIndex < tasks.length ? selectedIndex : tasks.length - 1
+        return tasks[i]
     }
 
     VideoExporter {
@@ -67,21 +77,10 @@ Item {
             else {
                 view.running = false
                 var okN = view.doneCount, failN = view.failCount
-                if (failN > 0) toast.show(qsTr("完成：%1 成功 · %2 失败（行内有原因）").arg(okN).arg(failN), false, "")
+                if (failN > 0) toast.show(qsTr("完成：%1 成功 · %2 失败（格内有原因）").arg(okN).arg(failN), false, "")
                 else { toast.show(qsTr("视频导出完成 · 共 %1 段").arg(okN), true, t.outPath); stampAnim.restart() }
             }
         }
-    }
-
-    // ---- 队列调度 ----
-    property int current: -1        // 正在导出的任务下标；-1 空闲
-    property bool running: false
-    property int selectedIndex: -1  // 预览台显示的任务；-1=最新一段
-
-    readonly property var activeTask: {
-        if (tasks.length === 0) return null
-        var i = selectedIndex >= 0 && selectedIndex < tasks.length ? selectedIndex : tasks.length - 1
-        return tasks[i]
     }
 
     function fmtSec(ms) {
@@ -92,7 +91,7 @@ Item {
 
     function addTask(path) {
         for (var i = 0; i < tasks.length; i++)
-            if (tasks[i].path === path && tasks[i].status === "wait") { toast.show(qsTr("该 GIF 已在清单里"), false, ""); return }
+            if (tasks[i].path === path && tasks[i].status === "wait") { toast.show(qsTr("该 GIF 已在胶片带上"), false, ""); return }
         var info = exporter.probeGif(path)
         var task = {
             path: path,
@@ -185,61 +184,29 @@ Item {
         try { return decodeURIComponent(s) } catch (e) { return s }
     }
 
-    // ===== 任务清单玻璃面板（左主区）=====
-    GlassPanel {
-        id: listGlass
-        stageItem: bgLayer
-        x: window.m; y: window.m
-        width: parent.width - 2 * window.m - 316 - window.m
-        height: parent.height - 2 * window.m - 64 - window.m
+    ColumnLayout {
+        anchors.fill: parent
+        anchors.margins: window.m
+        anchors.topMargin: window.m
+        spacing: 14
 
-        ColumnLayout {
-            anchors.fill: parent
-            spacing: 0
+        // ============ 预览台（玻璃）============
+        GlassPanel {
+            id: stageGlass
+            stageItem: bgLayer
+            Layout.fillWidth: true
+            Layout.fillHeight: true
 
-            // 面板头：标题 + 朱砂眉标 + 加号
-            Item {
-                Layout.fillWidth: true
-                Layout.preferredHeight: 50
-                RowLayout {
-                    anchors.fill: parent
-                    anchors.leftMargin: 16; anchors.rightMargin: 10
-                    spacing: 10
-                    Rectangle { width: 3; height: 12; radius: 1.5; color: Theme.seal }
-                    Text {
-                        text: qsTr("转换清单")
-                        color: Theme.text
-                        font.family: Theme.fontUI
-                        font.pixelSize: 13; font.bold: true
-                    }
-                    Text {
-                        text: qsTr("同一 GIF 可加多行、设不同循环次数")
-                        color: Theme.textFaint
-                        font.family: Theme.fontUI
-                        font.pixelSize: 10
-                        Layout.fillWidth: true
-                    }
-                    AppButton {
-                        text: qsTr("+ 添加 GIF")
-                        kind: "primary"
-                        implicitHeight: 30
-                        onClicked: addDialog.open()
-                    }
-                }
-                Rectangle { anchors.bottom: parent.bottom; width: parent.width; height: 1; color: Theme.lineSoft }
-            }
-
-            // ===== 预览台：选中 GIF 的首帧画面（拷贝台体验，同水印模式）=====
             Item {
                 id: stage
-                Layout.fillWidth: true
-                Layout.fillHeight: true
+                anchors.fill: parent
 
-                // 台面（极淡棋盘 + 发光渐变）
+                // 台面
                 Rectangle {
                     id: stageSurface
-                    anchors.fill: parent
-                    anchors.margins: 12
+                    anchors.centerIn: parent
+                    width: Math.min(parent.width - 48, 640)
+                    height: parent.height - 44
                     radius: Theme.radiusSm
                     color: Theme.stageBg
                     border.width: 1; border.color: Theme.lineSoft
@@ -253,351 +220,433 @@ Item {
                     }
                 }
 
-                // 画面（首帧，等比缩放居中）
+                // 首帧画面
                 Image {
-                    anchors.centerIn: parent
-                    anchors.verticalCenterOffset: -10
+                    anchors.centerIn: stageSurface
+                    anchors.verticalCenterOffset: -8
                     visible: view.activeTask !== null && view.activeTask.previewUrl !== ""
                     source: view.activeTask ? view.activeTask.previewUrl : ""
                     fillMode: Image.PreserveAspectFit
                     mipmap: true
                     cache: false
                     asynchronous: true
-                    property real maxW: stage.width - 80
-                    property real maxH: stage.height - 90
+                    property real maxW: stageSurface.width - 40
+                    property real maxH: stageSurface.height - 70
                     width: Math.min(maxW, implicitWidth * (maxH / Math.max(1, implicitHeight)))
                     height: width * implicitHeight / Math.max(1, implicitWidth)
                 }
 
-                // 读数胶囊（尺寸 · 时长 · 循环后成片）
-                RowLayout {
+                // 读数胶囊：尺寸 · 源时长 → 成片时长
+                Rectangle {
                     visible: view.activeTask !== null
-                    spacing: 8
-                    anchors.horizontalCenter: parent.horizontalCenter
-                    anchors.bottom: parent.bottom
-                    anchors.bottomMargin: 18
-                    Rectangle {
-                        radius: Theme.radiusSm
-                        color: Theme.panel
-                        border.width: 1; border.color: Theme.line
-                        width: metaRow.implicitWidth + 24
-                        height: 28
-                        RowLayout {
-                            id: metaRow
-                            anchors.centerIn: parent
-                            spacing: 8
-                            Text {
-                                text: view.activeTask
-                                      ? (view.activeTask.width > 0 ? view.activeTask.width + "×" + view.activeTask.height : "—")
-                                      : ""
-                                color: Theme.textDim
-                                font.family: Theme.fontMono
-                                font.pixelSize: 11
-                            }
-                            Rectangle { width: 1; height: 10; color: Theme.line }
-                            Text {
-                                text: view.activeTask ? view.fmtSec(view.activeTask.durationMs) : ""
-                                color: Theme.textDim
-                                font.family: Theme.fontMono
-                                font.pixelSize: 11
-                            }
-                            Text { text: "→"; color: Theme.textFaint; font.family: Theme.fontMono; font.pixelSize: 11 }
-                            Text {
-                                text: view.activeTask
-                                      ? view.fmtSec(view.activeTask.durationMs > 0 ? view.activeTask.durationMs * view.activeTask.loops : -1)
-                                      : ""
-                                color: Theme.jade
-                                font.family: Theme.fontMono
-                                font.pixelSize: 11; font.bold: true
-                            }
+                    anchors.horizontalCenter: stageSurface.horizontalCenter
+                    anchors.bottom: stageSurface.bottom
+                    anchors.bottomMargin: 12
+                    radius: Theme.radiusSm
+                    color: Theme.panel
+                    border.width: 1; border.color: Theme.line
+                    width: metaRow.implicitWidth + 24
+                    height: 28
+                    RowLayout {
+                        id: metaRow
+                        anchors.centerIn: parent
+                        spacing: 8
+                        Text {
+                            text: view.activeTask && view.activeTask.width > 0
+                                  ? view.activeTask.width + "×" + view.activeTask.height : "—"
+                            color: Theme.textDim
+                            font.family: Theme.fontMono
+                            font.pixelSize: 11
+                        }
+                        Rectangle { width: 1; height: 10; color: Theme.line }
+                        Text {
+                            text: view.activeTask ? view.fmtSec(view.activeTask.durationMs) : ""
+                            color: Theme.textDim
+                            font.family: Theme.fontMono
+                            font.pixelSize: 11
+                        }
+                        Text { text: "→"; color: Theme.textFaint; font.family: Theme.fontMono; font.pixelSize: 11 }
+                        Text {
+                            text: view.activeTask
+                                  ? view.fmtSec(view.activeTask.durationMs > 0 ? view.activeTask.durationMs * view.activeTask.loops : -1)
+                                  : ""
+                            color: Theme.jade
+                            font.family: Theme.fontMono
+                            font.pixelSize: 11; font.bold: true
                         }
                     }
                 }
 
-                // 空态：邀请（居中）
+                // 空态：邀请
                 Column {
-                    anchors.centerIn: parent
+                    anchors.centerIn: stageSurface
                     anchors.verticalCenterOffset: -12
                     visible: view.tasks.length === 0
                     spacing: 10
                     Text {
                         anchors.horizontalCenter: parent.horizontalCenter
-                        text: qsTr("把 GIF 拖进来，或点右上角添加")
+                        text: qsTr("把 GIF 拖进来，或点下方添加")
                         color: Theme.textDim
                         font.family: Theme.fontUI
                         font.pixelSize: 13
                     }
                     Text {
                         anchors.horizontalCenter: parent.horizontalCenter
-                        text: qsTr("每行一个任务，右侧设循环次数，短 GIF 叠成足长视频")
+                        text: qsTr("同一 GIF 可叠多格、设不同循环，短 GIF 叠成足长视频")
                         color: Theme.textFaint
                         font.family: Theme.fontUI
                         font.pixelSize: 11
                     }
-                }
-            }
-
-            // ===== 任务清单（紧凑列表，点击行选中到预览台）=====
-            Flickable {
-                id: taskFlick
-                Layout.fillWidth: true
-                Layout.preferredHeight: tasks.length > 0 ? 168 : 0
-                contentWidth: width
-                contentHeight: taskCol.implicitHeight
-                clip: true
-                boundsBehavior: Flickable.StopAtBounds
-                ScrollBar.vertical: ScrollBar { policy: ScrollBar.AsNeeded }
-
-                ColumnLayout {
-                    id: taskCol
-                    width: taskFlick.width
-                    spacing: 0
-
-                    Repeater {
-                        model: view.tasks
-
-                        ColumnLayout {
-                            id: taskRow
-                            required property var modelData
-                            required property int index
-                            Layout.fillWidth: true
-                            spacing: 0
-
-                            // 选中态背景 + 整行点击选中（预览台联动）
-                            Rectangle {
-                                anchors.fill: parent
-                                color: view.selectedIndex === taskRow.index ? Theme.panelHover : "transparent"
-                            }
-                            MouseArea {
-                                anchors.fill: parent
-                                cursorShape: Qt.PointingHandCursor
-                                onClicked: view.selectedIndex = taskRow.index
-                            }
-                            Rectangle {
-                                anchors.left: parent.left
-                                anchors.top: parent.top
-                                anchors.bottom: parent.bottom
-                                width: 3
-                                color: view.selectedIndex === taskRow.index ? Theme.seal : "transparent"
-                            }
-
-                            RowLayout {
-                                Layout.fillWidth: true
-                                Layout.leftMargin: 16; Layout.rightMargin: 12
-                                Layout.topMargin: 8; Layout.bottomMargin: 8
-                                spacing: 10
-
-                                // 状态点
-                                Rectangle {
-                                    width: 8; height: 8; radius: 4
-                                    color: taskRow.modelData.status === "ok" ? Theme.ok
-                                         : taskRow.modelData.status === "fail" ? Theme.seal
-                                         : taskRow.modelData.status === "run" ? Theme.sealHi
-                                         : Theme.line
-                                }
-
-                                // 文件名 + 失败原因
-                                ColumnLayout {
-                                    Layout.fillWidth: true
-                                    spacing: 1
-                                    Text {
-                                        Layout.fillWidth: true
-                                        text: taskRow.modelData.name
-                                        color: taskRow.modelData.status === "fail" ? Theme.seal : Theme.text
-                                        font.family: Theme.fontMono
-                                        font.pixelSize: 12
-                                        elide: Text.ElideMiddle
-                                    }
-                                    Text {
-                                        visible: taskRow.modelData.err !== ""
-                                        Layout.fillWidth: true
-                                        text: taskRow.modelData.err
-                                        color: Theme.seal
-                                        font.family: Theme.fontUI
-                                        font.pixelSize: 10
-                                        elide: Text.ElideRight
-                                    }
-                                }
-
-                                // 循环步进：源时长 × N
-                                RowLayout {
-                                    spacing: 7
-                                    Text {
-                                        text: view.fmtSec(taskRow.modelData.durationMs)
-                                        color: Theme.textFaint
-                                        font.family: Theme.fontMono
-                                        font.pixelSize: 11
-                                    }
-                                    Text { text: "×"; color: Theme.textFaint; font.pixelSize: 11 }
-                                    NumberField {
-                                        implicitWidth: 86
-                                        from: 1; to: 999
-                                        value: taskRow.modelData.loops
-                                        enabled: !view.running && taskRow.modelData.status !== "ok"
-                                        onEdited: function(v) {
-                                            view.tasks[taskRow.index].loops = Math.round(v)
-                                            view.tasks = view.tasks.slice()
-                                        }
-                                    }
-                                    Text {
-                                        text: "="
-                                        color: Theme.textFaint
-                                        font.family: Theme.fontMono
-                                        font.pixelSize: 11
-                                    }
-                                    Text {
-                                        text: view.fmtSec(taskRow.modelData.durationMs > 0
-                                                          ? taskRow.modelData.durationMs * taskRow.modelData.loops : -1)
-                                        color: Theme.jade
-                                        font.family: Theme.fontMono
-                                        font.pixelSize: 12; font.bold: true
-                                    }
-                                }
-
-                                // 移除
-                                Rectangle {
-                                    width: 24; height: 24; radius: 12
-                                    color: rmMa.containsMouse ? Theme.panelHover : "transparent"
-                                    Text { anchors.centerIn: parent; text: "×"; font.pixelSize: 13; color: Theme.textFaint }
-                                    MouseArea {
-                                        id: rmMa
-                                        anchors.fill: parent
-                                        hoverEnabled: true
-                                        cursorShape: Qt.PointingHandCursor
-                                        enabled: !view.running
-                                        onClicked: view.removeTask(taskRow.index)
-                                    }
-                                }
-                            }
-
-                            // 行内进度细线（导出中）
-                            Rectangle {
-                                Layout.fillWidth: true
-                                height: 2
-                                visible: taskRow.modelData.status === "run"
-                                Rectangle {
-                                    width: parent.width * (taskRow.modelData.progress || 0) / 100
-                                    height: parent.height; color: Theme.seal
-                                }
-                            }
-                            Rectangle {
-                                Layout.fillWidth: true; height: 1; color: Theme.lineSoft
-                            }
-                        }
-                    }
-                }
-            }
-
-            // 面板底：成片读数（签名：大等宽数字）
-            Item {
-                Layout.fillWidth: true
-                Layout.preferredHeight: 46
-                Rectangle { anchors.top: parent.top; width: parent.width; height: 1; color: Theme.lineSoft }
-                RowLayout {
-                    anchors.fill: parent
-                    anchors.leftMargin: 16; anchors.rightMargin: 16
-                    spacing: 8
-                    Text {
-                        text: view.tasks.length
-                        color: Theme.text
-                        font.family: Theme.fontMono
-                        font.pixelSize: 18; font.bold: true
-                    }
-                    Text { text: qsTr("段任务"); color: Theme.textDim; font.family: Theme.fontUI; font.pixelSize: 11 }
-                    Rectangle { width: 1; height: 14; color: Theme.line; Layout.leftMargin: 4; Layout.rightMargin: 4 }
-                    Text {
-                        text: "≈ " + view.totalOutSec.toFixed(1) + "s"
-                        color: Theme.jade
-                        font.family: Theme.fontMono
-                        font.pixelSize: 18; font.bold: true
-                    }
-                    Text { text: qsTr("成片总时长"); color: Theme.textDim; font.family: Theme.fontUI; font.pixelSize: 11 }
-                    Item { Layout.fillWidth: true }
-                    Text {
-                        visible: view.failCount > 0
-                        text: view.failCount + qsTr(" 段失败")
-                        color: Theme.seal
-                        font.family: Theme.fontMono
-                        font.pixelSize: 12
+                    AppButton {
+                        anchors.horizontalCenter: parent.horizontalCenter
+                        text: qsTr("+ 添加 GIF")
+                        kind: "primary"
+                        implicitHeight: 36
+                        leftPadding: 24; rightPadding: 24
+                        onClicked: addDialog.open()
                     }
                 }
             }
         }
-    }
 
-    // ===== 输出设置玻璃面板（右栏）=====
-    GlassPanel {
-        id: setGlass
-        stageItem: bgLayer
-        anchors.right: parent.right
-        anchors.rightMargin: window.m
-        anchors.top: parent.top
-        anchors.topMargin: window.m
-        width: 316
-        height: parent.height - 2 * window.m - 64 - window.m
+        // ============ 胶片带（签名元素：任务即帧格）============
+        Item {
+            Layout.fillWidth: true
+            Layout.preferredHeight: tasks.length > 0 ? 168 : 44
 
-        ColumnLayout {
-            anchors.fill: parent
-            spacing: 0
-
-            Item {
-                Layout.fillWidth: true
-                Layout.preferredHeight: 50
-                RowLayout {
-                    anchors.fill: parent
-                    anchors.leftMargin: 16
-                    spacing: 10
-                    Rectangle { width: 3; height: 12; radius: 1.5; color: Theme.seal }
-                    Text {
-                        text: qsTr("输出设置")
-                        color: Theme.text
-                        font.family: Theme.fontUI
-                        font.pixelSize: 13; font.bold: true
-                    }
-                    Item { Layout.fillWidth: true }
-                }
-                Rectangle { anchors.bottom: parent.bottom; width: parent.width; height: 1; color: Theme.lineSoft }
+            // 空槽提示（无任务时）
+            Text {
+                visible: tasks.length === 0
+                anchors.centerIn: parent
+                text: qsTr("胶片带空着——添加的每段 GIF 会在这里排成一格")
+                color: Theme.textFaint
+                font.family: Theme.fontUI
+                font.pixelSize: 11
             }
 
-            ColumnLayout {
-                Layout.fillWidth: true
-                Layout.fillHeight: true
-                Layout.margins: 16
+            // 上齿孔
+            Item {
+                visible: tasks.length > 0
+                anchors.top: parent.top
+                anchors.left: parent.left
+                anchors.right: parent.right
+                height: 7
+                clip: true
+                Row {
+                    anchors.horizontalCenter: parent.horizontalCenter
+                    spacing: 16
+                    Repeater {
+                        model: 80
+                        Rectangle { width: 9; height: 5; radius: 1.5; color: Theme.panelHi; border.width: 1; border.color: Theme.line }
+                    }
+                }
+            }
+            // 下齿孔
+            Item {
+                visible: tasks.length > 0
+                anchors.bottom: parent.bottom
+                anchors.left: parent.left
+                anchors.right: parent.right
+                height: 7
+                clip: true
+                Row {
+                    anchors.horizontalCenter: parent.horizontalCenter
+                    spacing: 16
+                    Repeater {
+                        model: 80
+                        Rectangle { width: 9; height: 5; radius: 1.5; color: Theme.panelHi; border.width: 1; border.color: Theme.line }
+                    }
+                }
+            }
+
+            // 帧格横带
+            Flickable {
+                id: filmFlick
+                visible: tasks.length > 0
+                anchors.top: parent.top
+                anchors.bottom: parent.bottom
+                anchors.left: parent.left
+                anchors.right: parent.right
+                anchors.topMargin: 12
+                anchors.bottomMargin: 12
+                anchors.leftMargin: 56
+                anchors.rightMargin: 56
+                clip: true
+                boundsBehavior: Flickable.StopAtBounds
+                contentWidth: filmRow.implicitWidth
+                ScrollBar.horizontal: ScrollBar { policy: ScrollBar.AsNeeded }
+
+                Row {
+                    id: filmRow
+                    spacing: 12
+
+                    Repeater {
+                        model: view.tasks
+
+                        Rectangle {
+                            id: frame
+                            required property var modelData
+                            required property int index
+                            width: 172
+                            height: 144
+                            radius: Theme.radiusSm
+                            color: view.selectedIndex === index ? Theme.panel : Theme.panelHi
+                            border.width: 1
+                            border.color: view.selectedIndex === index ? Theme.seal : Theme.line
+                            Behavior on border.color { ColorAnimation { duration: Theme.quick } }
+
+                            // 缩略帧
+                            Rectangle {
+                                id: thumbClip
+                                anchors.top: parent.top
+                                anchors.left: parent.left
+                                anchors.right: parent.right
+                                anchors.margins: 8
+                                height: 82
+                                radius: Theme.radiusXs
+                                color: Theme.stageBg
+                                clip: true
+                                Image {
+                                    anchors.fill: parent
+                                    source: frame.modelData.previewUrl
+                                    fillMode: Image.PreserveAspectCrop
+                                    mipmap: true
+                                    cache: false
+                                    asynchronous: true
+                                    opacity: frame.modelData.status === "fail" ? 0.4 : 1.0
+                                }
+                                // 导出中进度线
+                                Rectangle {
+                                    anchors.left: parent.left
+                                    anchors.bottom: parent.bottom
+                                    height: 3
+                                    width: parent.width * (frame.modelData.progress || 0) / 100
+                                    color: Theme.seal
+                                    visible: frame.modelData.status === "run"
+                                }
+                                // 状态角标
+                                Rectangle {
+                                    anchors.top: parent.top
+                                    anchors.left: parent.left
+                                    anchors.margins: 5
+                                    width: 9; height: 9; radius: 4.5
+                                    color: frame.modelData.status === "ok" ? Theme.ok
+                                         : frame.modelData.status === "fail" ? Theme.seal
+                                         : frame.modelData.status === "run" ? Theme.sealHi
+                                         : Theme.line
+                                }
+                            }
+
+                            // 文件名
+                            Text {
+                                anchors.top: thumbClip.bottom
+                                anchors.left: parent.left
+                                anchors.right: parent.right
+                                anchors.leftMargin: 10
+                                anchors.rightMargin: 10
+                                anchors.topMargin: 5
+                                text: frame.modelData.name
+                                color: frame.modelData.status === "fail" ? Theme.seal : Theme.text
+                                font.family: Theme.fontMono
+                                font.pixelSize: 10
+                                elide: Text.ElideMiddle
+                            }
+
+                            // ×N 步进 + 成片
+                            RowLayout {
+                                anchors.bottom: parent.bottom
+                                anchors.left: parent.left
+                                anchors.right: parent.right
+                                anchors.leftMargin: 10
+                                anchors.rightMargin: 10
+                                anchors.bottomMargin: 6
+                                spacing: 5
+                                NumberField {
+                                    implicitWidth: 76
+                                    implicitHeight: 26
+                                    from: 1; to: 999
+                                    value: frame.modelData.loops
+                                    enabled: !view.running && frame.modelData.status !== "ok"
+                                    onEdited: function(v) {
+                                        view.tasks[frame.index].loops = Math.round(v)
+                                        view.tasks = view.tasks.slice()
+                                    }
+                                }
+                                Text {
+                                    text: "="
+                                    color: Theme.textFaint
+                                    font.family: Theme.fontMono
+                                    font.pixelSize: 10
+                                }
+                                Text {
+                                    Layout.fillWidth: true
+                                    text: view.fmtSec(frame.modelData.durationMs > 0
+                                                      ? frame.modelData.durationMs * frame.modelData.loops : -1)
+                                    color: Theme.jade
+                                    font.family: Theme.fontMono
+                                    font.pixelSize: 11; font.bold: true
+                                }
+                            }
+
+                            // 失败原因（悬停格内提示）
+                            ToolTip.visible: failMa.containsMouse && frame.modelData.err !== ""
+                            ToolTip.delay: 200
+                            ToolTip.text: frame.modelData.err || ""
+
+                            // 整格点击选中 + 悬停
+                            MouseArea {
+                                id: failMa
+                                anchors.fill: parent
+                                hoverEnabled: true
+                                cursorShape: Qt.PointingHandCursor
+                                onClicked: view.selectedIndex = frame.index
+                            }
+
+                            // 删除（悬停右上角）
+                            Rectangle {
+                                anchors.top: parent.top
+                                anchors.right: parent.right
+                                anchors.margins: 4
+                                width: 20; height: 20; radius: 10
+                                color: rmMa.containsMouse ? Theme.panelHover : Theme.panel
+                                opacity: failMa.containsMouse || rmMa.containsMouse ? 1 : 0
+                                Behavior on opacity { NumberAnimation { duration: Theme.quick } }
+                                Text { anchors.centerIn: parent; text: "×"; font.pixelSize: 12; color: Theme.textDim }
+                                MouseArea {
+                                    id: rmMa
+                                    anchors.fill: parent
+                                    hoverEnabled: true
+                                    cursorShape: Qt.PointingHandCursor
+                                    enabled: !view.running
+                                    onClicked: view.removeTask(frame.index)
+                                }
+                            }
+                        }
+                    }
+
+                    // 添加格（跟在末尾）
+                    Rectangle {
+                        width: 96
+                        height: 144
+                        radius: Theme.radiusSm
+                        color: addMa.containsMouse ? Theme.panelHover : Theme.panelHi
+                        border.width: 1
+                        border.color: addMa.containsMouse ? Theme.sealHi : Theme.line
+                        Behavior on border.color { ColorAnimation { duration: Theme.quick } }
+                        Column {
+                            anchors.centerIn: parent
+                            spacing: 4
+                            Text {
+                                anchors.horizontalCenter: parent.horizontalCenter
+                                text: "+"
+                                font.pixelSize: 22
+                                color: addMa.containsMouse ? Theme.seal : Theme.textFaint
+                            }
+                            Text {
+                                anchors.horizontalCenter: parent.horizontalCenter
+                                text: qsTr("添加")
+                                font.family: Theme.fontUI
+                                font.pixelSize: 10
+                                color: Theme.textDim
+                            }
+                        }
+                        MouseArea {
+                            id: addMa
+                            anchors.fill: parent
+                            hoverEnabled: true
+                            cursorShape: Qt.PointingHandCursor
+                            onClicked: addDialog.open()
+                        }
+                    }
+                }
+            }
+        }
+
+        // ============ 参数条 + 导出（玻璃）============
+        GlassPanel {
+            id: specGlass
+            stageItem: bgLayer
+            Layout.fillWidth: true
+            Layout.preferredHeight: 64
+
+            RowLayout {
+                anchors.fill: parent
+                anchors.leftMargin: 16; anchors.rightMargin: 14
                 spacing: 10
 
-                Text { text: qsTr("分辨率"); color: Theme.textDim; font.family: Theme.fontUI; font.pixelSize: 11; font.bold: true }
-                Segmented {
-                    Layout.fillWidth: true
-                    model: view.resPresets.map(function(r) { return r.label })
-                    currentIndex: vsSettings.resIndex
-                    onActivated: function(i) { vsSettings.resIndex = i }
+                // REC 式参数读数（点击弹层调参）
+                Rectangle {
+                    radius: Theme.radiusSm
+                    color: segMa1.containsMouse ? Theme.panelHover : Theme.panelHi
+                    border.width: 1; border.color: Theme.line
+                    implicitWidth: resRead.implicitWidth + 20
+                    implicitHeight: 32
+                    RowLayout {
+                        id: resRead
+                        anchors.centerIn: parent
+                        spacing: 6
+                        Text { text: qsTr("分辨率"); color: Theme.textFaint; font.family: Theme.fontUI; font.pixelSize: 10 }
+                        Text { text: view.resPresets[vsSettings.resIndex].label; color: Theme.text; font.family: Theme.fontMono; font.pixelSize: 12; font.bold: true }
+                    }
+                    MouseArea {
+                        id: segMa1
+                        anchors.fill: parent
+                        hoverEnabled: true
+                        cursorShape: Qt.PointingHandCursor
+                        onClicked: resPopup.open()
+                    }
+                }
+                Rectangle {
+                    radius: Theme.radiusSm
+                    color: segMa2.containsMouse ? Theme.panelHover : Theme.panelHi
+                    border.width: 1; border.color: Theme.line
+                    implicitWidth: fpsRead.implicitWidth + 20
+                    implicitHeight: 32
+                    RowLayout {
+                        id: fpsRead
+                        anchors.centerIn: parent
+                        spacing: 6
+                        Text { text: qsTr("帧率"); color: Theme.textFaint; font.family: Theme.fontUI; font.pixelSize: 10 }
+                        Text { text: view.fpsOptions[vsSettings.fpsIndex] + "fps"; color: Theme.text; font.family: Theme.fontMono; font.pixelSize: 12; font.bold: true }
+                    }
+                    MouseArea {
+                        id: segMa2
+                        anchors.fill: parent
+                        hoverEnabled: true
+                        cursorShape: Qt.PointingHandCursor
+                        onClicked: fpsPopup.open()
+                    }
+                }
+                Rectangle {
+                    radius: Theme.radiusSm
+                    color: segMa3.containsMouse ? Theme.panelHover : Theme.panelHi
+                    border.width: 1; border.color: Theme.line
+                    implicitWidth: qRead.implicitWidth + 20
+                    implicitHeight: 32
+                    RowLayout {
+                        id: qRead
+                        anchors.centerIn: parent
+                        spacing: 6
+                        Text { text: qsTr("画质"); color: Theme.textFaint; font.family: Theme.fontUI; font.pixelSize: 10 }
+                        Text { text: view.qualityLabels[vsSettings.qualityIndex]; color: Theme.text; font.family: Theme.fontMono; font.pixelSize: 12; font.bold: true }
+                    }
+                    MouseArea {
+                        id: segMa3
+                        anchors.fill: parent
+                        hoverEnabled: true
+                        cursorShape: Qt.PointingHandCursor
+                        onClicked: qualityPopup.open()
+                    }
                 }
 
-                Text { text: qsTr("帧率"); color: Theme.textDim; font.family: Theme.fontUI; font.pixelSize: 11; font.bold: true; Layout.topMargin: 6 }
-                Segmented {
-                    Layout.fillWidth: true
-                    model: view.fpsOptions.map(function(f) { return f + " fps" })
-                    currentIndex: vsSettings.fpsIndex
-                    onActivated: function(i) { vsSettings.fpsIndex = i }
-                }
-
-                Text { text: qsTr("画质"); color: Theme.textDim; font.family: Theme.fontUI; font.pixelSize: 11; font.bold: true; Layout.topMargin: 6 }
-                Segmented {
-                    Layout.fillWidth: true
-                    model: [qsTr("最高"), qsTr("均衡"), qsTr("较小")]
-                    currentIndex: vsSettings.qualityIndex
-                    onActivated: function(i) { vsSettings.qualityIndex = i }
-                }
-
-                Text { text: qsTr("输出到"); color: Theme.textDim; font.family: Theme.fontUI; font.pixelSize: 11; font.bold: true; Layout.topMargin: 6 }
+                // 输出文件夹
                 FileChip {
-                    Layout.fillWidth: true
                     glyph: "DIR"
-                    role: qsTr("输出文件夹")
+                    role: qsTr("输出到")
                     accent: Theme.jade
                     value: vsSettings.outFolder ? vsSettings.outFolder.replace(/^.*[\\/]/, "") : ""
-                    hint: qsTr("选择保存文件夹")
-                    maxWidth: 280
+                    hint: qsTr("选择文件夹")
+                    maxWidth: 220
                     onClicked: outDialog.open()
                     onCleared: vsSettings.outFolder = ""
                     onOpenFolderRequested: {
@@ -606,93 +655,134 @@ Item {
                     }
                 }
 
-                Text {
-                    Layout.fillWidth: true
-                    Layout.topMargin: 4
-                    text: qsTr("H.264 · yuv420p · faststart，微信 / QQ / 浏览器直接可播；GIF 无声，成片亦无声。")
-                    color: Theme.textFaint
-                    font.family: Theme.fontUI
-                    font.pixelSize: 10
-                    wrapMode: Text.WordWrap
-                }
+                Item { Layout.fillWidth: true }
 
-                Item { Layout.fillHeight: true }
+                // 总时长读数 + 成功勾
+                Text {
+                    text: "✓"
+                    visible: stampAnim.running
+                    color: Theme.ok
+                    font.pixelSize: 16; font.bold: true
+                    Layout.rightMargin: 2
+                }
+                Text {
+                    text: "≈ " + view.totalOutSec.toFixed(1) + "s"
+                    color: Theme.jade
+                    font.family: Theme.fontMono
+                    font.pixelSize: 16; font.bold: true
+                }
+                Text { text: qsTr("成片"); color: Theme.textDim; font.family: Theme.fontUI; font.pixelSize: 11 }
+
+                // 导出状态/按钮
+                Text {
+                    visible: view.running
+                    text: qsTr("%1/%2 · %3%").arg(view.current + 1).arg(view.tasks.length).arg(exporter.progress)
+                    color: Theme.seal
+                    font.family: Theme.fontMono
+                    font.pixelSize: 12
+                }
+                AppButton {
+                    text: qsTr("取消")
+                    kind: "ghost"
+                    implicitHeight: 36
+                    visible: view.running
+                    onClicked: exporter.cancelExport()
+                }
+                AppButton {
+                    text: view.running ? qsTr("导出中…")
+                         : qsTr("导出视频") + (view.pendingCount > 0 ? " " + view.pendingCount : "")
+                    kind: "primary"
+                    implicitHeight: 38
+                    leftPadding: 20; rightPadding: 20
+                    enabled: !view.running && view.pendingCount > 0 && vsSettings.outFolder !== ""
+                    onClicked: view.startExport()
+                    ToolTip.visible: hovered && !view.running && vsSettings.outFolder === "" && view.pendingCount > 0
+                    ToolTip.text: qsTr("请先选择输出文件夹")
+                    ToolTip.delay: 300
+                }
+            }
+
+            // 成功勾闪现动画
+            SequentialAnimation {
+                id: stampAnim
+                PauseAnimation { duration: 300 }
+                NumberAnimation { target: checkMark; property: "scale"; from: 1.8; to: 1.0; duration: 160; easing.type: Easing.OutBack }
+                PauseAnimation { duration: 500 }
+                NumberAnimation { target: checkMark; property: "opacity"; to: 0; duration: 300 }
+            }
+            Text {
+                id: checkMark
+                text: "✓"
+                visible: stampAnim.running || opacity > 0
+                color: Theme.ok
+                font.pixelSize: 18; font.bold: true
+                anchors.verticalCenter: parent.verticalCenter
+                anchors.left: parent.left
+                anchors.leftMargin: 12
+                opacity: 0
+                scale: 1.0
             }
         }
     }
 
-    // ===== 底部导出栏胶囊 =====
-    GlassPanel {
-        id: exportGlass
-        stageItem: bgLayer
-        radius: Theme.radiusSm
-        anchors.left: parent.left
-        anchors.leftMargin: window.m
-        anchors.bottom: parent.bottom
-        anchors.bottomMargin: window.m
-        width: Math.min(parent.width - 2 * window.m, exportRow.implicitWidth + 28)
-        height: 64
-
-        RowLayout {
-            id: exportRow
-            anchors.fill: parent
-            anchors.leftMargin: 16; anchors.rightMargin: 14
-            spacing: 12
-
-            // 盖章位（成功动画）
-            Item {
-                Layout.preferredWidth: view.running ? 0 : 36
-                Layout.preferredHeight: 36
-                clip: true
-                visible: !view.running
-                AppMark { id: stampMark; anchors.centerIn: parent; size: 30; opacity: 0 }
-                SequentialAnimation {
-                    id: stampAnim
-                    PropertyAction { target: stampMark; property: "scale"; value: 1.6 }
-                    PropertyAction { target: stampMark; property: "opacity"; value: 0 }
-                    ParallelAnimation {
-                        NumberAnimation { target: stampMark; property: "scale"; to: 1.0; duration: 180; easing.type: Easing.OutBack }
-                        NumberAnimation { target: stampMark; property: "opacity"; to: 0.95; duration: 120 }
-                    }
-                    PauseAnimation { duration: 400 }
-                    NumberAnimation { target: stampMark; property: "opacity"; to: 0; duration: 300 }
-                }
+    // ---- 参数弹层（三份同构：主题面板底 + 单行 Segmented，选中即收起；定位于参数条上方）----
+    Popup {
+        id: resPopup
+        x: 16
+        y: view.height - implicitHeight - 92
+        width: 300
+        padding: 16
+        modal: false
+        closePolicy: Popup.CloseOnEscape | Popup.CloseOnPressOutside
+        background: Rectangle { radius: Theme.radius; color: Theme.panel; border.width: 1; border.color: Theme.line }
+        contentItem: ColumnLayout {
+            spacing: 10
+            Text { text: qsTr("分辨率"); color: Theme.textDim; font.family: Theme.fontUI; font.pixelSize: 11; font.bold: true }
+            Segmented {
+                Layout.fillWidth: true
+                model: view.resPresets.map(function(r) { return r.label })
+                currentIndex: vsSettings.resIndex
+                onActivated: function(i) { vsSettings.resIndex = i; resPopup.close() }
             }
-
-            Text {
-                visible: view.running
-                text: qsTr("导出中 %1 · %2%").arg(current + 1).arg(exporter.progress)
-                color: Theme.seal
-                font.family: Theme.fontMono
-                font.pixelSize: 12
+        }
+    }
+    Popup {
+        id: fpsPopup
+        x: 16
+        y: view.height - implicitHeight - 92
+        width: 300
+        padding: 16
+        modal: false
+        closePolicy: Popup.CloseOnEscape | Popup.CloseOnPressOutside
+        background: Rectangle { radius: Theme.radius; color: Theme.panel; border.width: 1; border.color: Theme.line }
+        contentItem: ColumnLayout {
+            spacing: 10
+            Text { text: qsTr("帧率"); color: Theme.textDim; font.family: Theme.fontUI; font.pixelSize: 11; font.bold: true }
+            Segmented {
+                Layout.fillWidth: true
+                model: view.fpsOptions.map(function(f) { return f + " fps" })
+                currentIndex: vsSettings.fpsIndex
+                onActivated: function(i) { vsSettings.fpsIndex = i; fpsPopup.close() }
             }
-            Text {
-                visible: !view.running && view.doneCount > 0
-                text: qsTr("已完成 %1").arg(view.doneCount)
-                color: Theme.ok
-                font.family: Theme.fontMono
-                font.pixelSize: 12
-            }
-            Item { Layout.fillWidth: true }
-
-            AppButton {
-                text: qsTr("取消")
-                kind: "ghost"
-                implicitHeight: 36
-                visible: view.running
-                onClicked: exporter.cancelExport()
-            }
-            AppButton {
-                text: view.running ? qsTr("导出中…")
-                     : qsTr("导出视频") + (view.pendingCount > 0 ? " " + view.pendingCount : "")
-                kind: "primary"
-                implicitHeight: 38
-                leftPadding: 20; rightPadding: 20
-                enabled: !view.running && view.pendingCount > 0 && vsSettings.outFolder !== ""
-                onClicked: view.startExport()
-                ToolTip.visible: hovered && !view.running && vsSettings.outFolder === "" && view.pendingCount > 0
-                ToolTip.text: qsTr("请先选择输出文件夹")
-                ToolTip.delay: 300
+        }
+    }
+    Popup {
+        id: qualityPopup
+        x: 16
+        y: view.height - implicitHeight - 92
+        width: 300
+        padding: 16
+        modal: false
+        closePolicy: Popup.CloseOnEscape | Popup.CloseOnPressOutside
+        background: Rectangle { radius: Theme.radius; color: Theme.panel; border.width: 1; border.color: Theme.line }
+        contentItem: ColumnLayout {
+            spacing: 10
+            Text { text: qsTr("画质"); color: Theme.textDim; font.family: Theme.fontUI; font.pixelSize: 11; font.bold: true }
+            Segmented {
+                Layout.fillWidth: true
+                model: view.qualityLabels
+                currentIndex: vsSettings.qualityIndex
+                onActivated: function(i) { vsSettings.qualityIndex = i; qualityPopup.close() }
             }
         }
     }

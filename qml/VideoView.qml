@@ -238,22 +238,41 @@ Item {
                     Rectangle { anchors.bottom: parent.bottom; width: parent.width; height: 1; color: Theme.lineSoft }
                 }
 
-                // 看片区：素材相框卡（白底 + 柔投影，呼应水印台面「预览框悬浮」语言）
+                // 看片区：整片台面铺满（空白处是材质不是死白），相框卡悬浮其上
                 Item {
                     id: cardArea
                     Layout.fillWidth: true
                     Layout.fillHeight: true
 
+                    // 台面（发光渐变，水印同语言）
+                    Rectangle {
+                        id: stagePad
+                        anchors.fill: parent
+                        anchors.margins: 12
+                        radius: Theme.radiusSm
+                        color: Theme.stageBg
+                        border.width: 1; border.color: Theme.lineSoft
+                        Rectangle {
+                            anchors.fill: parent
+                            radius: parent.radius
+                            gradient: Gradient {
+                                GradientStop { position: 0.0; color: Qt.rgba(1,1,1,0.35) }
+                                GradientStop { position: 0.55; color: Qt.rgba(1,1,1,0.08) }
+                                GradientStop { position: 1.0; color: Qt.rgba(1,1,1,0.0) }
+                            }
+                        }
+                    }
+
                     property real srcW: view.activeTask && view.activeTask.width > 0 ? view.activeTask.width : 16
                     property real srcH: view.activeTask && view.activeTask.height > 0 ? view.activeTask.height : 9
-                    property real maxW: width - 88
-                    property real maxH: height - 96
+                    property real maxW: stagePad.width - 56
+                    property real maxH: stagePad.height - 96
                     property real fit: Math.min(maxW / srcW, maxH / srcH)
 
                     // 柔投影
                     Rectangle {
-                        anchors.horizontalCenter: parent.horizontalCenter
-                        anchors.verticalCenter: parent.verticalCenter
+                        anchors.horizontalCenter: stagePad.horizontalCenter
+                        anchors.verticalCenter: stagePad.verticalCenter
                         anchors.verticalCenterOffset: 8
                         width: frameCard.width; height: frameCard.height
                         radius: frameCard.radius + 2
@@ -264,8 +283,9 @@ Item {
                     // 相框卡
                     Rectangle {
                         id: frameCard
-                        anchors.horizontalCenter: parent.horizontalCenter
-                        anchors.verticalCenter: parent.verticalCenter
+                        anchors.horizontalCenter: stagePad.horizontalCenter
+                        anchors.verticalCenter: stagePad.verticalCenter
+                        anchors.verticalCenterOffset: -8
                         width: Math.max(140, cardArea.srcW * cardArea.fit)
                         height: Math.max(88, cardArea.srcH * cardArea.fit)
                         radius: 6
@@ -283,12 +303,12 @@ Item {
                         }
                     }
 
-                    // 读数胶囊：尺寸 · 源时长 → 成片时长（挂在卡片下缘）
+                    // 读数胶囊：尺寸 · 源时长 → 成片时长（贴台面下缘）
                     Rectangle {
                         visible: view.activeTask !== null
-                        anchors.horizontalCenter: parent.horizontalCenter
-                        anchors.bottom: parent.bottom
-                        anchors.bottomMargin: 14
+                        anchors.horizontalCenter: stagePad.horizontalCenter
+                        anchors.bottom: stagePad.bottom
+                        anchors.bottomMargin: 12
                         radius: Theme.radiusSm
                         color: Theme.panel
                         border.width: 1; border.color: Theme.line
@@ -326,7 +346,7 @@ Item {
 
                     // 空态：邀请
                     Column {
-                        anchors.centerIn: parent
+                        anchors.centerIn: stagePad
                         anchors.verticalCenterOffset: -12
                         visible: view.tasks.length === 0
                         spacing: 10

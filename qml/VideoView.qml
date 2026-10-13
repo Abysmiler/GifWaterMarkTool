@@ -217,6 +217,7 @@ Item {
                             font.pixelSize: 13; font.bold: true
                         }
                         Text {
+                            id: fileNameText
                             Layout.fillWidth: true
                             text: view.activeTask ? view.activeTask.name : ""
                             visible: view.activeTask !== null
@@ -225,20 +226,19 @@ Item {
                             font.pixelSize: 11
                             elide: Text.ElideMiddle
                         }
-                        // 读数胶囊
+                        // 读数胶囊（Layout 按 implicitWidth 分配宽度，勿用 width 绑定——会被 Layout 覆盖）
                         Rectangle {
+                            id: capsuleRect
                             visible: view.activeTask !== null
-                            Layout.maximumWidth: 300
+                            implicitWidth: Math.min(metaRow.implicitWidth + 20, 300)
+                            implicitHeight: 28
                             radius: Theme.radiusSm
                             color: Theme.panel
                             border.width: 1; border.color: Theme.line
-                            width: Math.min(implicitW + 20, 300)
-                            height: 28
-                            property real implicitW: metaRow.implicitWidth
                             RowLayout {
                                 id: metaRow
                                 anchors.centerIn: parent
-                                width: Math.min(implicitWidth, parent.width - 12)
+                                width: Math.min(implicitWidth, capsuleRect.width - 12)
                                 spacing: 8
                                 Text {
                                     text: view.activeTask && view.activeTask.width > 0
@@ -279,8 +279,6 @@ Item {
                     }
                     Rectangle { anchors.bottom: parent.bottom; width: parent.width; height: 1; color: Theme.lineSoft }
                 }
-
-                // 看片区：整片台面铺满（空白处是材质不是死白），相框卡悬浮其上
                 Item {
                     id: cardArea
                     Layout.fillWidth: true

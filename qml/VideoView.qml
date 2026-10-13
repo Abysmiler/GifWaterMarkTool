@@ -201,7 +201,7 @@ Item {
                 anchors.fill: parent
                 spacing: 0
 
-                // 头：眉标 + 选中段名（给看片区一个锚点）
+                // 头：眉标 + 选中段名 + 读数（尺寸 · 源时长 → 成片时长）
                 Item {
                     Layout.fillWidth: true
                     Layout.preferredHeight: 42
@@ -224,6 +224,48 @@ Item {
                             font.family: Theme.fontMono
                             font.pixelSize: 11
                             elide: Text.ElideMiddle
+                        }
+                        // 读数胶囊
+                        Rectangle {
+                            visible: view.activeTask !== null
+                            Layout.maximumWidth: 300
+                            radius: Theme.radiusSm
+                            color: Theme.panel
+                            border.width: 1; border.color: Theme.line
+                            width: Math.min(implicitW + 20, 300)
+                            height: 28
+                            property real implicitW: metaRow.implicitWidth
+                            RowLayout {
+                                id: metaRow
+                                anchors.centerIn: parent
+                                width: Math.min(implicitWidth, parent.width - 12)
+                                spacing: 8
+                                Text {
+                                    text: view.activeTask && view.activeTask.width > 0
+                                          ? view.activeTask.width + "×" + view.activeTask.height : "—"
+                                    color: Theme.textDim
+                                    font.family: Theme.fontMono
+                                    font.pixelSize: 11
+                                }
+                                Rectangle { width: 1; height: 10; color: Theme.line }
+                                Text {
+                                    Layout.maximumWidth: 70
+                                    text: view.activeTask ? view.fmtSec(view.activeTask.durationMs) : ""
+                                    color: Theme.textDim
+                                    font.family: Theme.fontMono
+                                    font.pixelSize: 11
+                                }
+                                Text { text: "→"; color: Theme.textFaint; font.family: Theme.fontMono; font.pixelSize: 11 }
+                                Text {
+                                    Layout.maximumWidth: 70
+                                    text: view.activeTask
+                                          ? view.fmtSec(view.activeTask.durationMs > 0 ? view.activeTask.durationMs * view.activeTask.loops : -1)
+                                          : ""
+                                    color: Theme.jade
+                                    font.family: Theme.fontMono
+                                    font.pixelSize: 11; font.bold: true
+                                }
+                            }
                         }
                         Text {
                             visible: view.tasks.length > 1
@@ -248,7 +290,7 @@ Item {
                     Rectangle {
                         id: stagePad
                         anchors.fill: parent
-                        anchors.margins: 12
+                        anchors.margins: 10
                         radius: Theme.radiusSm
                         color: Theme.stageBg
                         border.width: 1; border.color: Theme.lineSoft
@@ -265,15 +307,15 @@ Item {
 
                     property real srcW: view.activeTask && view.activeTask.width > 0 ? view.activeTask.width : 16
                     property real srcH: view.activeTask && view.activeTask.height > 0 ? view.activeTask.height : 9
-                    property real maxW: stagePad.width - 56
-                    property real maxH: stagePad.height - 96
+                    property real maxW: stagePad.width - 40
+                    property real maxH: stagePad.height - 40
                     property real fit: Math.min(maxW / srcW, maxH / srcH)
 
                     // 柔投影
                     Rectangle {
                         anchors.horizontalCenter: stagePad.horizontalCenter
                         anchors.verticalCenter: stagePad.verticalCenter
-                        anchors.verticalCenterOffset: 8
+                        anchors.verticalCenterOffset: 7
                         width: frameCard.width; height: frameCard.height
                         radius: frameCard.radius + 2
                         color: Qt.rgba(0.19, 0.31, 0.37, 0.20)
@@ -283,9 +325,7 @@ Item {
                     // 相框卡
                     Rectangle {
                         id: frameCard
-                        anchors.horizontalCenter: stagePad.horizontalCenter
-                        anchors.verticalCenter: stagePad.verticalCenter
-                        anchors.verticalCenterOffset: -8
+                        anchors.centerIn: stagePad
                         width: Math.max(140, cardArea.srcW * cardArea.fit)
                         height: Math.max(88, cardArea.srcH * cardArea.fit)
                         radius: 6
@@ -296,51 +336,10 @@ Item {
 
                         Image {
                             anchors.fill: parent
-                            anchors.margins: 10
+                            anchors.margins: 8
                             source: view.activeTask ? view.activeTask.previewUrl : ""
                             fillMode: Image.PreserveAspectFit
                             mipmap: true; cache: false; asynchronous: true
-                        }
-                    }
-
-                    // 读数胶囊：尺寸 · 源时长 → 成片时长（贴台面下缘）
-                    Rectangle {
-                        visible: view.activeTask !== null
-                        anchors.horizontalCenter: stagePad.horizontalCenter
-                        anchors.bottom: stagePad.bottom
-                        anchors.bottomMargin: 12
-                        radius: Theme.radiusSm
-                        color: Theme.panel
-                        border.width: 1; border.color: Theme.line
-                        width: metaRow.implicitWidth + 24
-                        height: 28
-                        RowLayout {
-                            id: metaRow
-                            anchors.centerIn: parent
-                            spacing: 8
-                            Text {
-                                text: view.activeTask && view.activeTask.width > 0
-                                      ? view.activeTask.width + "×" + view.activeTask.height : "—"
-                                color: Theme.textDim
-                                font.family: Theme.fontMono
-                                font.pixelSize: 11
-                            }
-                            Rectangle { width: 1; height: 10; color: Theme.line }
-                            Text {
-                                text: view.activeTask ? view.fmtSec(view.activeTask.durationMs) : ""
-                                color: Theme.textDim
-                                font.family: Theme.fontMono
-                                font.pixelSize: 11
-                            }
-                            Text { text: "→"; color: Theme.textFaint; font.family: Theme.fontMono; font.pixelSize: 11 }
-                            Text {
-                                text: view.activeTask
-                                      ? view.fmtSec(view.activeTask.durationMs > 0 ? view.activeTask.durationMs * view.activeTask.loops : -1)
-                                      : ""
-                                color: Theme.jade
-                                font.family: Theme.fontMono
-                                font.pixelSize: 11; font.bold: true
-                            }
                         }
                     }
 
@@ -380,7 +379,7 @@ Item {
         // ============ 胶片带（签名元素：真实片基，齿孔随内容滚动）============
         Item {
             Layout.fillWidth: true
-            Layout.preferredHeight: view.tasks.length > 0 ? 150 : 0
+            Layout.preferredHeight: view.tasks.length > 0 ? 190 : 0
             visible: view.tasks.length > 0
 
             // 片基
@@ -428,29 +427,30 @@ Item {
                                 id: frame
                                 required property var modelData
                                 required property int index
-                                width: 168
-                                height: 118
+                                width: 208
+                                height: 158
                                 radius: Theme.radiusSm
                                 color: view.selectedIndex === index ? Theme.panel : Theme.stageBg
                                 border.width: 1
                                 border.color: view.selectedIndex === index ? Theme.seal : Theme.line
                                 Behavior on border.color { ColorAnimation { duration: Theme.quick } }
 
-                                // 缩略帧
+                                // 缩略帧（Fit 完整显示画面，不裁剪）
                                 Rectangle {
                                     id: thumbClip
                                     anchors.top: parent.top
                                     anchors.left: parent.left
                                     anchors.right: parent.right
                                     anchors.margins: 7
-                                    height: 62
+                                    height: 92
                                     radius: Theme.radiusXs
                                     color: Theme.panel
                                     clip: true
                                     Image {
                                         anchors.fill: parent
+                                        anchors.margins: 4
                                         source: frame.modelData.previewUrl
-                                        fillMode: Image.PreserveAspectCrop
+                                        fillMode: Image.PreserveAspectFit
                                         mipmap: true
                                         cache: false
                                         asynchronous: true
@@ -567,8 +567,8 @@ Item {
 
                         // 添加格（跟在末尾）
                         Rectangle {
-                            width: 132
-                            height: 118
+                            width: 168
+                            height: 158
                             radius: Theme.radiusSm
                             color: "transparent"
                             border.width: 1
@@ -623,7 +623,7 @@ Item {
             id: specGlass
             stageItem: bgLayer
             Layout.fillWidth: true
-            Layout.preferredHeight: 68
+            Layout.preferredHeight: 60
 
             RowLayout {
                 anchors.fill: parent

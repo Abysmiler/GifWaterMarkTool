@@ -18,6 +18,10 @@ void Renamer::setCustomPatterns(const QStringList &v)
 {
     if (m_customPatterns != v) { m_customPatterns = v; emit customPatternsChanged(); }
 }
+void Renamer::setReplaceRules(const QVariantList &v)
+{
+    if (m_replaceRules != v) { m_replaceRules = v; emit replaceRulesChanged(); }
+}
 
 // 时间戳两种形态：2026-06-26-20-07-33（日期-时间连字符）与 20260626200917（14 位纯数字）。
 // 用完整段精确匹配，不误伤普通数字名（如 "1.gif"、"test1"）。
@@ -64,6 +68,15 @@ QString Renamer::cleanName(const QString &fileName) const
             newStem.remove(re);
     }
 
+    // 文字替换规则：字面匹配（非正则），文件名中所有出现都被替换
+    for (const QVariant &rv : m_replaceRules) {
+        const QVariantMap rm = rv.toMap();
+        const QString find = rm.value(QStringLiteral("find")).toString();
+        const QString replace = rm.value(QStringLiteral("replace")).toString();
+        if (!find.isEmpty())
+            newStem.replace(find, replace);
+    }
+
     if (newStem.trimmed().isEmpty())
         return fileName;   // 清洗后无内容可保留：不动
     return newStem + ext;
@@ -87,22 +100,39 @@ QString Renamer::dedupeName(const QString &dir, const QString &base, const QStri
     }
 }
 
-QVariantList Renamer::preview(const QStringList &folders) const
+QVariantList Renamer::preview(const QVariantList &sources) const
 {
     QVariantList out;
     QSet<QString> used;   // 本批已占用的小写全路径（磁盘已存在的文件天然占用，见 dedupe）
 
-    // 收集文件（先目录序、后文件名序，保证加序号结果稳定可重现）
+    // 收集文件（先来源序、后文件名序，保证加序号结果稳定可重现）
     struct Entry { QString path, dir, oldName, newName; };
     QList<Entry> entries;
-    for (const QString &folder : folders) {
-        const QDir d(folder);
+    QSet<QString> seen;   // 跨来源去重：同一文件既在文件夹里又被明确添加时只入列一次
+    for (const QVariant &sv : sources) {
+        const QVariantMap sm = sv.toMap();
+        const QString kind = sm.value(QStringLiteral("kind")).toString();
+        const QString path = sm.value(QStringLiteral("path")).toString();
+        if (kind == QLatin1String("file")) {
+            // 明确选择的单个文件：不受 gifOnly 过滤（用户意图优先）
+            const QFileInfo fi(path);
+            if (!fi.isFile())
+                continue;
+            if (!seen.contains(fi.absoluteFilePath())) {
+                seen.insert(fi.absoluteFilePath());
+                entries.append({ fi.absoluteFilePath(), fi.absolutePath(),
+                                 fi.fileName(), QString() });
+            }
+            continue;
+        }
+        // folder：按目录扫描
+        const QDir d(path);
         if (!d.exists())
             continue;
         const QFileInfoList fis = m_recursive
             ? [&] {
                   QFileInfoList acc;
-                  QDirIterator it(folder, QDir::Files, QDirIterator::Subdirectories);
+                  QDirIterator it(path, QDir::Files, QDirIterator::Subdirectories);
                   while (it.hasNext()) { it.next(); acc.append(it.fileInfo()); }
                   return acc;
               }()
@@ -110,6 +140,9 @@ QVariantList Renamer::preview(const QStringList &folders) const
         for (const QFileInfo &fi : fis) {
             if (m_gifOnly && fi.suffix().compare(QLatin1String("gif"), Qt::CaseInsensitive) != 0)
                 continue;
+            if (seen.contains(fi.absoluteFilePath()))
+                continue;
+            seen.insert(fi.absoluteFilePath());
             entries.append({ fi.absoluteFilePath(), fi.absolutePath(),
                              fi.fileName(), QString() });
         }

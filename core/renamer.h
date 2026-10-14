@@ -21,6 +21,8 @@ class Renamer : public QObject {
     Q_PROPERTY(bool recursive READ recursive WRITE setRecursive NOTIFY recursiveChanged)
     // 自定义「匹配即删除」正则列表（QML 从设置读出注入）
     Q_PROPERTY(QStringList customPatterns READ customPatterns WRITE setCustomPatterns NOTIFY customPatternsChanged)
+    // 文字替换规则列表：[{find, replace}]，字面匹配（非正则），文件名中所有出现都会被替换
+    Q_PROPERTY(QVariantList replaceRules READ replaceRules WRITE setReplaceRules NOTIFY replaceRulesChanged)
 
 public:
     explicit Renamer(QObject *parent = nullptr);
@@ -31,19 +33,23 @@ public:
     bool gifOnly() const { return m_gifOnly; }
     bool recursive() const { return m_recursive; }
     QStringList customPatterns() const { return m_customPatterns; }
+    QVariantList replaceRules() const { return m_replaceRules; }
     void setStripTimestamp(bool v);
     void setStripBrackets(bool v);
     void setStripCopySuffix(bool v);
     void setGifOnly(bool v);
     void setRecursive(bool v);
     void setCustomPatterns(const QStringList &v);
+    void setReplaceRules(const QVariantList &v);
 
     // 清洗单个文件名（纯文件名，不含路径）。清洗后无内容可保留时原样返回。
     Q_INVOKABLE QString cleanName(const QString &fileName) const;
 
-    // 预览一批文件夹，返回条目列表：{path, dir, oldName, newName, changed}
+    // 预览混合来源：sources = [{kind: "folder"|"file", path}]。
+    // folder 按目录扫描（受 gifOnly/recursive 影响），file 直接作为条目（用户明确选择，不受 gifOnly 过滤）。
+    // 返回条目列表：{path, dir, oldName, newName, changed}
     // 同批映射到同名（或与磁盘已有文件撞名）时自动加序号："阿念哭 2.gif"。
-    Q_INVOKABLE QVariantList preview(const QStringList &folders) const;
+    Q_INVOKABLE QVariantList preview(const QVariantList &sources) const;
 
     // 执行改名（items 取 preview 返回的条目）。返回失败清单：{path, oldName, newName, error}；
     // 失败的文件保持原名。目标已存在 / 被占用 / 无权限都会归入失败并带原因。
@@ -60,6 +66,7 @@ signals:
     void gifOnlyChanged();
     void recursiveChanged();
     void customPatternsChanged();
+    void replaceRulesChanged();
 
 private:
     // 在 dir 内为 newBase.ext 找一个不冲突的名字（used 是本批已占用的全路径集合）
@@ -72,4 +79,5 @@ private:
     bool m_gifOnly = true;
     bool m_recursive = false;
     QStringList m_customPatterns;
+    QVariantList m_replaceRules;   // [{find, replace}]
 };

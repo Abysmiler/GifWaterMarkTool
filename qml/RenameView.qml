@@ -13,18 +13,19 @@ Item {
     id: view
     anchors.fill: parent
 
-    property var folders: []        // 累加选择的文件夹
+    property var sources: []        // 混合来源：[{kind: "folder"|"file", path}]
     property var items: []          // preview 结果 [{path, dir, oldName, newName, changed, error}]
     property string statusText: ""
     property var customPatterns: [] // 自定义「匹配即删除」正则
+    property var replaceRules: []   // 文字替换：[{find, replace}] 字面匹配
 
     readonly property var changedItems: items.filter(function(it) { return it.changed })
     readonly property int failCount: items.filter(function(it) { return it.error }).length
 
     function repreview() {
         statusText = ""
-        if (folders.length === 0) { items = []; return }
-        items = renamer.preview(folders)
+        if (sources.length === 0) { items = []; return }
+        items = renamer.preview(sources)
     }
 
     function savePatterns() {
@@ -49,9 +50,18 @@ Item {
             : qsTr("已重命名 %1 个文件").arg(changedItems.length)
     }
 
-    function removeFolder(i) {
-        folders.splice(i, 1)
-        folders = folders.slice()
+    function removeSource(i) {
+        sources.splice(i, 1)
+        sources = sources.slice()
+        repreview()
+    }
+
+    function addSource(kind, path) {
+        // 去重：同一来源（同类型同路径）不重复添加
+        for (var i = 0; i < sources.length; i++)
+            if (sources[i].kind === kind && sources[i].path === path) return
+        sources.push({ kind: kind, path: path })
+        sources = sources.slice()
         repreview()
     }
 
@@ -63,6 +73,7 @@ Item {
         gifOnly: rnSettings.gifOnly
         recursive: rnSettings.recursive
         customPatterns: view.customPatterns
+        replaceRules: view.replaceRules
     }
 
     Settings {
@@ -75,10 +86,15 @@ Item {
         property bool gifOnly: true
         property bool recursive: false
         property string customPatternsJson: "[]"
+        property string replaceRulesJson: "[]"
         property string lastFolder: ""
     }
     Component.onCompleted: {
         try { customPatterns = JSON.parse(rnSettings.customPatternsJson) } catch (e) { customPatterns = [] }
+        try { replaceRules = JSON.parse(rnSettings.replaceRulesJson) } catch (e) { replaceRules = [] }
+    }
+    function saveReplaceRules() {
+        rnSettings.replaceRulesJson = JSON.stringify(replaceRules)
     }
 
     FolderDialog {
@@ -88,11 +104,17 @@ Item {
         onAccepted: {
             rnSettings.lastFolder = urlToPath(currentFolder)
             var p = urlToPath(selectedFolder)
-            if (folders.indexOf(p) === -1) {
-                folders.push(p)
-                folders = folders.slice()
-                repreview()
-            }
+            addSource("folder", p)
+        }
+    }
+    FileDialog {
+        id: addFilesDialog
+        title: qsTr("选择文件（可按住 Ctrl 多选）")
+        nameFilters: ["GIF (*.gif)", qsTr("全部文件 (*)")]
+        fileMode: FileDialog.OpenFiles
+        onAccepted: {
+            for (var i = 0; i < selectedFiles.length; i++)
+                addSource("file", urlToPath(selectedFiles[i]))
         }
     }
     function urlToPath(u) {
@@ -141,8 +163,8 @@ Item {
                         Layout.fillWidth: true
                     }
                     Text {
-                        visible: view.folders.length > 0
-                        text: view.folders.length + qsTr(" 个文件夹")
+                        visible: view.sources.length > 0
+                        text: view.sources.length + qsTr(" 个来源")
                         color: Theme.textFaint
                         font.family: Theme.fontMono
                         font.pixelSize: 11
@@ -165,7 +187,7 @@ Item {
                     spacing: 6
 
                     Repeater {
-                        model: view.folders
+                        model: view.sources
                         Rectangle {
                             id: folderChip
                             required property string modelData
@@ -182,9 +204,19 @@ Item {
                                 hoverEnabled: true
                             }
                             Text {
-                                id: chipText
+                                id: kindTag
                                 anchors.left: parent.left
-                                anchors.leftMargin: 9
+                                anchors.leftMargin: 8
+                                anchors.verticalCenter: parent.verticalCenter
+                                text: folderChip.modelData.kind === "file" ? "F" : "D"
+                                color: folderChip.modelData.kind === "file" ? Theme.jade : Theme.textFaint
+                                font.family: Theme.fontMono
+                                font.pixelSize: 9; font.bold: true
+                            }
+                            Text {
+                                id: chipText
+                                anchors.left: kindTag.right
+                                anchors.leftMargin: 4
                                 anchors.right: rmBtn.left
                                 anchors.rightMargin: 3
                                 anchors.verticalCenter: parent.verticalCenter
@@ -210,7 +242,7 @@ Item {
                                     anchors.fill: parent
                                     hoverEnabled: true
                                     cursorShape: Qt.PointingHandCursor
-                                    onClicked: view.removeFolder(folderChip.index)
+                                    onClicked: view.removeSource(folderChip.index)
                                 }
                             }
                             ToolTip.visible: chipHover.containsMouse
@@ -219,12 +251,18 @@ Item {
                         }
                     }
 
-                    // 添加按钮跟在 chip 行尾
+                    // 添加按钮跟在 chip 行尾：文件夹 / 文件两种来源
                     AppButton {
-                        text: qsTr("+ 添加文件夹")
+                        text: qsTr("+ 文件夹")
                         kind: "ghost"
                         implicitHeight: 26
                         onClicked: addFolderDialog.open()
+                    }
+                    AppButton {
+                        text: qsTr("+ 文件")
+                        kind: "ghost"
+                        implicitHeight: 26
+                        onClicked: addFilesDialog.open()
                     }
                 }
             }
@@ -343,7 +381,7 @@ Item {
                                 Item {
                                     Layout.fillWidth: true
                                     Layout.fillHeight: true
-                                    visible: view.folders.length === 0
+                                    visible: view.sources.length === 0
 
                                     Column {
                                         anchors.centerIn: parent
@@ -378,7 +416,7 @@ Item {
                                 Item {
                                     Layout.fillWidth: true
                                     Layout.fillHeight: true
-                                    visible: view.folders.length > 0 && view.items.length === view.changedItems.length
+                                    visible: view.sources.length > 0 && view.items.length === view.changedItems.length
 
                                     Text {
                                         anchors.centerIn: parent
@@ -394,7 +432,7 @@ Item {
                                 Item {
                                     Layout.fillWidth: true
                                     Layout.fillHeight: true
-                                    visible: view.folders.length > 0 && view.items.length === 0
+                                    visible: view.sources.length > 0 && view.items.length === 0
 
                                     Text {
                                         anchors.centerIn: parent
@@ -666,6 +704,122 @@ Item {
                                 onClicked: {
                                     view.customPatterns.push("")
                                     view.customPatterns = view.customPatterns.slice()
+                                }
+                            }
+
+                            // —— 文字替换 ——
+                            Text {
+                                text: qsTr("文字替换")
+                                color: Theme.textFaint
+                                font.family: Theme.fontUI
+                                font.pixelSize: 10; font.bold: true
+                                Layout.topMargin: 14
+                                Layout.bottomMargin: 4
+                            }
+                            Text {
+                                Layout.fillWidth: true
+                                text: qsTr("字面匹配：文件名里所有出现的「查找」都会被换成「替换为」（留空替换为即删除）。")
+                                color: Theme.textFaint
+                                font.family: Theme.fontUI
+                                font.pixelSize: 10
+                                wrapMode: Text.WordWrap
+                            }
+                            Repeater {
+                                model: view.replaceRules
+                                ColumnLayout {
+                                    id: rrRow
+                                    required property var modelData
+                                    required property int index
+                                    Layout.fillWidth: true
+                                    Layout.topMargin: 6
+                                    spacing: 4
+                                    RowLayout {
+                                        Layout.fillWidth: true
+                                        spacing: 4
+                                        Text {
+                                            text: qsTr("查找")
+                                            color: Theme.textFaint
+                                            font.family: Theme.fontUI
+                                            font.pixelSize: 10
+                                        }
+                                        TextField {
+                                            id: findField
+                                            Layout.fillWidth: true
+                                            implicitHeight: 28
+                                            text: rrRow.modelData.find
+                                            font.family: Theme.fontMono
+                                            font.pixelSize: 11
+                                            color: findField.text !== "" ? Theme.text : Theme.seal
+                                            background: Rectangle {
+                                                radius: Theme.radiusSm
+                                                color: Theme.panelHi
+                                                border.width: 1
+                                                border.color: findField.text !== "" ? Theme.line : Theme.seal
+                                            }
+                                            onTextEdited: {
+                                                view.replaceRules[rrRow.index].find = findField.text
+                                                view.saveReplaceRules()
+                                                view.repreview()
+                                            }
+                                        }
+                                    }
+                                    RowLayout {
+                                        Layout.fillWidth: true
+                                        spacing: 4
+                                        Text {
+                                            text: qsTr("替换为")
+                                            color: Theme.textFaint
+                                            font.family: Theme.fontUI
+                                            font.pixelSize: 10
+                                        }
+                                        TextField {
+                                            Layout.fillWidth: true
+                                            implicitHeight: 28
+                                            text: rrRow.modelData.replace
+                                            font.family: Theme.fontMono
+                                            font.pixelSize: 11
+                                            color: Theme.text
+                                            background: Rectangle {
+                                                radius: Theme.radiusSm
+                                                color: Theme.panelHi
+                                                border.width: 1
+                                                border.color: Theme.line
+                                            }
+                                            onTextEdited: {
+                                                view.replaceRules[rrRow.index].replace = text
+                                                view.saveReplaceRules()
+                                                view.repreview()
+                                            }
+                                        }
+                                        Rectangle {
+                                            width: 24; height: 24; radius: 12
+                                            color: rrMa.containsMouse ? Theme.panelHover : "transparent"
+                                            Text { anchors.centerIn: parent; text: "×"; font.pixelSize: 12; color: Theme.textFaint }
+                                            MouseArea {
+                                                id: rrMa
+                                                anchors.fill: parent
+                                                hoverEnabled: true
+                                                cursorShape: Qt.PointingHandCursor
+                                                onClicked: {
+                                                    view.replaceRules.splice(rrRow.index, 1)
+                                                    view.replaceRules = view.replaceRules.slice()
+                                                    view.saveReplaceRules()
+                                                    view.repreview()
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                            AppButton {
+                                Layout.topMargin: 6
+                                text: qsTr("+ 添加替换")
+                                kind: "ghost"
+                                implicitHeight: 28
+                                leftPadding: 14; rightPadding: 14
+                                onClicked: {
+                                    view.replaceRules.push({ find: "", replace: "" })
+                                    view.replaceRules = view.replaceRules.slice()
                                 }
                             }
                             Item { Layout.fillHeight: true; Layout.minimumHeight: 8 }

@@ -460,7 +460,7 @@ ApplicationWindow {
                             font.pixelSize: 14; font.bold: true
                         }
                         Text {
-                            text: "v1.0.6"
+                            text: "v1.0.7"
                             color: Theme.textFaint
                             font.family: Theme.fontMono
                             font.pixelSize: 9
@@ -731,7 +731,7 @@ ApplicationWindow {
         // ===== 设置弹窗（毛玻璃，浮于应用之上）=====
         SettingsDialog {
             id: settingsDlg
-            appVersion: "v1.0.6"
+            appVersion: "v1.0.7"
             rememberWatermark: wmSettings.memoryEnabled
             deepCompress: prefs.deepCompress
             rememberOutFolder: prefs.rememberOutFolder

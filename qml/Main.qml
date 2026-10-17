@@ -472,7 +472,7 @@ ApplicationWindow {
 
                 // 模式切换：水印 / 转视频
                 Segmented {
-                    implicitWidth: 250
+                    implicitWidth: 210
                     model: [qsTr("水印"), qsTr("转视频"), qsTr("重命名")]
                     currentIndex: window.appMode
                     onActivated: function(i) { window.appMode = i }
@@ -485,6 +485,7 @@ ApplicationWindow {
 
                 FileChip {
                     visible: window.appMode === 0
+                    maxWidth: 240
                     glyph: "GIF"
                     role: qsTr("GIF 文件")
                     accent: Theme.jade
@@ -502,6 +503,7 @@ ApplicationWindow {
                 }
                 FileChip {
                     visible: window.appMode === 0
+                    maxWidth: 200
                     glyph: "OUT"
                     role: qsTr("导出到")
                     accent: Theme.textDim
